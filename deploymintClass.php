@@ -632,7 +632,7 @@ class deploymint {
 		$opt = self::getOptions(); extract($opt, EXTR_OVERWRITE);
 		$pid = $_POST['projectid'];
 		$blogsTable = $wpdb->base_prefix . 'blogs';
-		$blogs = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain from dep_members, $blogsTable where dep_members.blog_id = $blogsTable.blog_id and dep_members.project_id = %d and dep_members.deleted=0", $pid), ARRAY_A);
+		$blogs = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain, $blogsTable.path as path from dep_members, $blogsTable where dep_members.blog_id = $blogsTable.blog_id and dep_members.project_id = %d and dep_members.deleted=0", $pid), ARRAY_A);
 		$res1 = $wpdb->get_results($wpdb->prepare("select dir from dep_projects where id=%d", $pid), ARRAY_A);
 		$dir = $datadir . $res1[0]['dir'];
 		if(! is_dir($dir)){
@@ -673,7 +673,7 @@ class deploymint {
 		global $wpdb;
 		$pid = $_POST['projectid'];
 		$blogsTable = $wpdb->base_prefix . 'blogs';
-		$blogs = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain from dep_members, $blogsTable where dep_members.blog_id = $blogsTable.blog_id and dep_members.project_id = %d and dep_members.deleted=0", $pid), ARRAY_A);
+		$blogs = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain, $blogsTable.path as path from dep_members, $blogsTable where dep_members.blog_id = $blogsTable.blog_id and dep_members.project_id = %d and dep_members.deleted=0", $pid), ARRAY_A);
 		die(json_encode(array('blogs' => $blogs)));
 	}
 	public static function ajax_reloadProjects_callback(){
@@ -681,9 +681,9 @@ class deploymint {
 		global $wpdb;
 		$blogsTable = $wpdb->base_prefix . 'blogs';
 		$projects = $wpdb->get_results($wpdb->prepare("select id, name from dep_projects where deleted=0"), ARRAY_A);
-		$allBlogs = $wpdb->get_results($wpdb->prepare("select blog_id, domain from $blogsTable order by domain asc"), ARRAY_A);
+		$allBlogs = $wpdb->get_results($wpdb->prepare("select blog_id, domain from $blogsTable, path from $blogsTable order by domain asc"), ARRAY_A);
 		for($i = 0; $i < sizeof($projects); $i++){
-			$mem = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain from dep_members, $blogsTable where dep_members.deleted=0 and dep_members.project_id=%d and dep_members.blog_id = $blogsTable.blog_id", $projects[$i]['id']), ARRAY_A);
+			$mem = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain, $blogsTable.path as path from dep_members, $blogsTable where dep_members.deleted=0 and dep_members.project_id=%d and dep_members.blog_id = $blogsTable.blog_id", $projects[$i]['id']), ARRAY_A);
 			$projects[$i]['memberBlogs'] = $mem;
 			$memids = array();
 			$notSQL = "";
@@ -693,7 +693,7 @@ class deploymint {
 				}
 				$notSQL = "where blog_id NOT IN (" . implode(",", $memids) . ")";
 			}
-			$nonmem = $wpdb->get_results($wpdb->prepare("select blog_id, domain from $blogsTable $notSQL order by domain asc"), ARRAY_A);
+			$nonmem = $wpdb->get_results($wpdb->prepare("select blog_id, domain from $blogsTable, path from $blogsTable $notSQL order by domain asc"), ARRAY_A);
 			$projects[$i]['nonmemberBlogs'] = $nonmem;
 			$projects[$i]['numNonmembers'] = sizeof($nonmem);
 
@@ -709,8 +709,8 @@ class deploymint {
 		$fromid = $_POST['deployFrom'];
 		$toid = $_POST['deployTo'];
 		$msgs = array();
-		$fromBlog = $wpdb->get_results($wpdb->prepare("select blog_id, domain from wp_blogs where blog_id=%d", $fromid), ARRAY_A);
-		$toBlog = $wpdb->get_results($wpdb->prepare("select blog_id, domain from wp_blogs where blog_id=%d", $toid), ARRAY_A);
+		$fromBlog = $wpdb->get_results($wpdb->prepare("select blog_id, domain, path from wp_blogs where blog_id=%d", $fromid), ARRAY_A);
+		$toBlog = $wpdb->get_results($wpdb->prepare("select blog_id, domain, path from wp_blogs where blog_id=%d", $toid), ARRAY_A);
 		if(sizeof($fromBlog) != 1){ die("We could not find the blog you're deploying from."); }
 		if(sizeof($toBlog) != 1){ die("We could not find the blog you're deploying to."); }
 		$fromPrefix = '';

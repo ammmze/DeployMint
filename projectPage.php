@@ -42,7 +42,7 @@
 	<td>Select a blog to deploy to:</td>
 	<td><select id="sdDepBlog">
 {{each(i,blog) blogs}}
-<option value="${blog.blog_id}">${blog.domain}</option>
+<option value="${blog.blog_id}">${blog.domain}${blog.path}</option>
 {{/each}}
 </select>
 	</td>
@@ -60,7 +60,7 @@
 	<td><select id="sdSnapBlog">
 {{if blogs.length}}
 {{each(i,blog) blogs}}
-<option value="${blog.blog_id}">${blog.domain}</option>
+<option value="${blog.blog_id}">${blog.domain}${blog.path}</option>
 {{/each}}
 {{else}}
 <option value="">--Please add a blog to this project--</option>

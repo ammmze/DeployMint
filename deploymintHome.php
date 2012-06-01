@@ -30,7 +30,7 @@
 	Add a blog to this project:&nbsp;<select id="projAddSel${proj.id}">
 	{{if proj.numNonmembers}}
 	{{each(k,blog) proj.nonmemberBlogs}}
-	<option value="${blog.blog_id}">${blog.domain}</option>
+	<option value="${blog.blog_id}">${blog.domain}${blog.path}</option>
 	{{/each}}
 	{{else}}
 	<option value="">--No blogs left to add--</option>
@@ -40,7 +40,7 @@
 	{{if proj.memberBlogs.length}}
 	<ul class="depList">
 		{{each(l,blog) proj.memberBlogs}}
-		<li>${blog.domain}&nbsp;<a href="#" onclick="deploymint.removeBlogFromProject(${proj.id}, ${blog.blog_id}); return false;" style="font-size: 10px;">remove</a></li>
+		<li>${blog.domain}${blog.path}&nbsp;<a href="#" onclick="deploymint.removeBlogFromProject(${proj.id}, ${blog.blog_id}); return false;" style="font-size: 10px;">remove</a></li>
 		{{/each}}
 	</ul>
 	{{else}}
