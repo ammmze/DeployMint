@@ -17,9 +17,12 @@
 	<tr><th>Path to mysqldump:</th><td><input type="text" id="sdPathToMysqldump" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['mysqldump']) ?>" /></td></tr>
 	<tr><th>Path to a data directory for DeployMint:</th><td><input type="text" id="sdPathToDataDir" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['datadir']) ?>" /></td></tr>
 	<tr><th>How many backups of your Wordpress database should we keep after each deploy:</th><td><input type="text" id="sdNumBackups" size="3" maxlength="255" value="<?php echo htmlspecialchars($opt['numBackups']) ?>" /></td></tr>
-	<tr><th>Would you like to preserve the destination Blog Name when deploying a snapshot:</th><td><input type="checkbox" id="sdPreserveBlogName" value="1" <?php echo ($opt['preserveBlogName']) ? 'checked=checked' : ''?> /></td></tr>
+	<tr><th>Tempory database:</th><td><input type="text" id="sdTemporaryDatabase" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['temporaryDatabase']) ?>" /></td></tr>
+	<tr><th>Backup disabled:</th><td><input type="checkbox" id="sdBackupDisabled" <?php if ($opt['backupDisabled'] != ''){echo 'checked="checked"';} ?> /></td></tr>
+	<tr><th>Backup database:</th><td><input type="text" id="sdBackupDatabase" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['backupDatabase']) ?>" /></td></tr>
+		<tr><th>Would you like to preserve the destination Blog Name when deploying a snapshot:</th><td><input type="checkbox" id="sdPreserveBlogName" value="1" <?php echo ($opt['preserveBlogName']) ? 'checked=checked' : ''?> /></td></tr>
 	</table>
 	<p class="submit">
-		<input type="submit" class="button-primary" value="<?php _e('Save Changes') ?>" onclick="deploymint.updateOptions(jQuery('#sdPathToGit').val(), jQuery('#sdPathToMysql').val(), jQuery('#sdPathToMysqldump').val(), jQuery('#sdPathToDataDir').val(), jQuery('#sdNumBackups').val(), (jQuery('#sdPreserveBlogName').is(':checked') ? 1 : 0)); return false;" />
+		<input type="submit" class="button-primary" value="<?php _e('Save Changes') ?>" onclick="deploymint.updateOptions({git: jQuery('#sdPathToGit').val(), mysql: jQuery('#sdPathToMysql').val(), mysqldump: jQuery('#sdPathToMysqldump').val(), datadir: jQuery('#sdPathToDataDir').val(), numBackups: jQuery('#sdNumBackups').val(), temporaryDatabase: jQuery('#sdTemporaryDatabase').val(), backupDatabase: jQuery('#sdBackupDatabase').val(), backupDisabled: jQuery('#sdBackupDisabled').attr('checked'),preserveBlogName: (jQuery('#sdPreserveBlogName').is(':checked') ? 1 : 0)}); return false;" />
 	</p>
 </div>

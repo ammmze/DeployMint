@@ -43,14 +43,43 @@ class deploymint {
 		if(! array_key_exists('preserveBlogName', $options)){ $options['preserveBlogName'] = 1; }
 		self::updateOptions($options);
 	}
-	private static function getOptions(){
+	private static function getOptions($createTemporaryDatabase = false, $createBackupDatabase = false){
 		global $wpdb;
 		$res = $wpdb->get_results($wpdb->prepare("select name, val from dep_options"), ARRAY_A);
 		$options = array();
 		for($i = 0; $i < sizeof($res); $i++){
 			$options[$res[$i]['name']] = $res[$i]['val'];
 		}
+		$options['backupDisabled'] = ($options['backupDisabled'] == '1');
+		$options['temporaryDatabaseCreated'] = false;
+		if ($temporaryDatabase == '' && $createTemporaryDatabase) {
+			for($i = 1; $i < 10; $i++){
+				$options['temporaryDatabase'] = 'dep_tmpdb' . preg_replace('/\./', '', microtime(true));
+				$res = $wpdb->get_results($wpdb->prepare("show tables from " . $options['temporaryDatabase']), ARRAY_A);
+				if(sizeof($res) < 1){
+					break;
+				}
+				if($i > 4){
+					self::ajaxError("We could not create a temporary database name after 5 tries. You may not have the create DB privelege.");
+				}
+			}
+			$wpdb->query($wpdb->prepare("create database " . $options['temporaryDatabase']));
+			$options['temporaryDatabaseCreated'] = true;
+		}
+		$options['backupDatabaseCreated'] = false;
+		if($options['backupDatabase'] == '' && $createBackupDatabase && !$options['backupDisabled']){
+			$options['backupDatabase'] = "depbak__" . preg_replace('/\./', '', microtime(true));
+			mysql_query("create database $backupDatabase", $dbh);
+			$options['backupDatabaseCreated'] = true;
+		}
 		return $options;
+	}
+	private function emptyDatabase($database, $connection) {
+		if ($result = mysql_query("SHOW TABLES IN $database", $connection)) {
+			while($row = mysql_fetch_array($result, MYSQL_NUM)) {
+				mysql_query('DROP TABLE IF EXISTS '.$row[0], $connection);
+			}
+		}
 	}
 	private static function updateOptions($o){
 		global $wpdb;
@@ -82,7 +111,7 @@ class deploymint {
 		}
 		add_action('init', 'deploymint::initHandler');
 		//wp_deregister_script( 'jquery' );
-		//wp_enqueue_script('jquery', plugin_dir_url( __FILE__ ) . 'js/jquery-1.6.2.js', array(  ) );
+		//wp_enqueue_script('jquery', plugin_dir_url( __FILE__ ) . 'js/jquery-1.6.2.js', array( ) );
 		wp_register_style('DeployMintCSS', plugin_dir_url( __FILE__ ) . 'css/admin.css');
 		wp_enqueue_style('DeployMintCSS');
 		add_action('wp_ajax_deploymint_deploy', 'deploymint::ajax_deploy_callback');
@@ -136,7 +165,7 @@ class deploymint {
 		}
 		$dir = $_POST['name'];
 		$dir = preg_replace('/[^a-zA-Z0-9]+/', '_', $dir);
-		$fulldir =  $dir . '-1';
+		$fulldir = $dir . '-1';
 		$counter = 2;
 		while(is_dir($datadir . $fulldir)){
 			$fulldir = preg_replace('/\-\d+$/', '', $fulldir);
@@ -165,6 +194,9 @@ class deploymint {
 			$datadir .= '/';
 		}
 		$numBackups = trim($_POST['numBackups']);
+		$temporaryDatabase = trim($_POST['temporaryDatabase']);
+		$backupDisabled = trim($_POST['backupDisabled']) != ''?1:0;
+		$backupDatabase = trim($_POST['backupDatabase']);
 		$errs = array();
 		if(! ($git && $mysql && $mysqldump && $datadir)){
 			$errs[] = "You must specify a value for all options.";
@@ -204,6 +236,9 @@ class deploymint {
 				'mysqldump' => $mysqldump,
 				'datadir' => $datadir,
 				'numBackups' => $numBackups,
+				'temporaryDatabase' => $temporaryDatabase,
+				'backupDisabled' => $backupDisabled,
+				'backupDatabase' => $backupDatabase,
 				'preserveBlogName' => $preserveBlogName
 				);
 			self::updateOptions($options);
@@ -366,14 +401,12 @@ class deploymint {
 	public static function ajax_undoDeploy_callback(){
 		self::checkPerms();
 		global $wpdb;
+		$opt = self::getOptions(true); extract($opt, EXTR_OVERWRITE);
 		$sourceDBName = $_POST['dbname'];
 		$dbuser = DB_USER; $dbpass = DB_PASSWORD; $dbhost = DB_HOST; $dbname = DB_NAME;
 		$dbh = mysql_connect( $dbhost, $dbuser, $dbpass, true );
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 		mysql_select_db($sourceDBName, $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		$tmpdbName = 'dep_tmpdb' . preg_replace('/\./', '', microtime(true));
-		mysql_query("create database " . $tmpdbName, $dbh);
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 		$res1 = mysql_query("show tables", $dbh);
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
@@ -385,13 +418,17 @@ class deploymint {
 		}
 		$renames = array();
 		foreach($allTables as $t){
-			array_push($renames, "$dbname.$t TO $tmpdbName.$t, $sourceDBName.$t TO $dbname.$t");
+			array_push($renames, "$dbname.$t TO $temporaryDatabase.$t, $sourceDBName.$t TO $dbname.$t");
 		}
 		$stime = microtime(true);
 		mysql_query("RENAME TABLE " . implode(', ', $renames), $dbh);
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 		$lockTime = sprintf('%.4f', microtime(true) - $stime);
-		mysql_query("drop database $tmpdbName", $dbh);
+		if ($temporaryDatabaseCreated){
+			mysql_query("drop database $temporaryDatabase", $dbh);
+		} else {
+			self::emptyDatabase($temporaryDatabase, $dbh);
+		}
 		foreach($allTables as $t){
 			mysql_query("create table $sourceDBName.$t like $dbname.$t", $dbh);
 			if(mysql_error($dbh)){ self::ajaxError("A database error occured trying to recreate the backup database, but the deployment completed. Error: " . substr(mysql_error($dbh), 0, 200)); }
@@ -404,7 +441,7 @@ class deploymint {
 	public static function ajax_deploySnapshot_callback(){
 		self::checkPerms();
 		global $wpdb;
-		$opt = self::getOptions(); extract($opt, EXTR_OVERWRITE);
+		$opt = self::getOptions(true, true); extract($opt, EXTR_OVERWRITE);
 		$pid = $_POST['projectid'];
 		$blogid = $_POST['blogid'];
 		$name = $_POST['name'];
@@ -456,27 +493,14 @@ class deploymint {
 		if(! $sourceTablePrefix){
 			self::ajaxError("We could not read the table prefix from $dir/deployData.txt");
 		}
-		$tmpDBName = "";
-		for($i = 1; $i < 10; $i++){
-			$tmpDBName = 'deptmp__' . microtime(true);
-			$tmpDBName = preg_replace('/\./', '', $tmpDBName);
-			$res = $wpdb->get_results($wpdb->prepare("show tables from $tmpDBName"), ARRAY_A);
-			if(sizeof($res) < 1){
-				break;
-			}
-			if($i > 4){
-				self::ajaxError("We could not create a temporary database name after 5 tries. You may not have the create DB privelege.");
-			}
-		}
-		$wpdb->query($wpdb->prepare("create database $tmpDBName"));
 		$dbuser = DB_USER; $dbpass = DB_PASSWORD; $dbhost = DB_HOST; $dbname = DB_NAME;
-		$slurp1 = self::mexec("cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $tmpDBName ", $dir);
+		$slurp1 = self::mexec("cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase ", $dir);
 		if(preg_match('/\w+/', $slurp1)){
-			self::ajaxError("We encountered an error importing the data files from snapshot $name. The error was: " . substr($slurp1, 0, 100));
+			self::ajaxError("We encountered an error importing the data files from snapshot $name into database $temporaryDatabase $dbuser:$dbpass@$dbhost. The error was: " . substr($slurp1, 0, 1000));
 		}
 		$dbh = mysql_connect( $dbhost, $dbuser, $dbpass, true );
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		if(! mysql_select_db($tmpDBName, $dbh)){ self::ajaxError("Could not select database $tmpDBName : " . mysql_error($dbh)); }
+		if(! mysql_select_db($temporaryDatabase, $dbh)){ self::ajaxError("Could not select temporary database $temporaryDatabase : " . mysql_error($dbh)); }
 		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); 
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 		$destSiteURL = $options['siteurl'];
@@ -510,13 +534,13 @@ class deploymint {
 			mysql_query("delete from $sourceTablePrefix" . "commentmeta", $dbh);
 			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 			//Bring comments across from live (destination) DB
-			mysql_query("insert into $tmpDBName.$sourceTablePrefix" . "comments select * from $dbname.$destTablePrefix" . "comments", $dbh);
+			mysql_query("insert into $temporaryDatabase.$sourceTablePrefix" . "comments select * from $dbname.$destTablePrefix" . "comments", $dbh);
 			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-			mysql_query("insert into $tmpDBName.$sourceTablePrefix" . "commentmeta select * from $dbname.$destTablePrefix" . "commentmeta", $dbh);
+			mysql_query("insert into $temporaryDatabase.$sourceTablePrefix" . "commentmeta select * from $dbname.$destTablePrefix" . "commentmeta", $dbh);
 			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 
 			//Then remap comments to posts based on the "slug" which is the post_name
-			$res6 = mysql_query("select dp.post_name as destPostName, dp.ID as destID, sp.post_name as sourcePostName, sp.ID as sourceID from $dbname.$destTablePrefix" . "posts as dp, $tmpDBName.$sourceTablePrefix" . "posts as sp where dp.post_name = sp.post_name", $dbh);
+			$res6 = mysql_query("select dp.post_name as destPostName, dp.ID as destID, sp.post_name as sourcePostName, sp.ID as sourceID from $dbname.$destTablePrefix" . "posts as dp, $temporaryDatabase.$sourceTablePrefix" . "posts as sp where dp.post_name = sp.post_name", $dbh);
 			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 			if(! $res6){
 				self::ajaxError("DB error creating maps betweeb post slugs: " . mysql_error($dbh));
@@ -548,66 +572,71 @@ class deploymint {
 				if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 			}
 		}
-		if(! mysql_select_db($dbname, $dbh)){ self::ajaxError("Could not select database $dbname : " . mysql_error($dbh)); }
-		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); 
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		$res14 = mysql_query("show tables", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		$allTables = array();
-		while($row = mysql_fetch_array($res14, MYSQL_NUM)){
-			array_push($allTables, $row[0]);
-		}
-		$backupDBName = "depbak__" . preg_replace('/\./', '', microtime(true));
-		mysql_query("create database $backupDBName", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		if(! mysql_select_db($backupDBName, $dbh)){ self::ajaxError("Could not select database $backupDBName : " . mysql_error($dbh)); }
-		error_log("BACKUPDB: $backupDBName");
-		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); ;
-
-		foreach($allTables as $t){
-			#We're taking across all tables including dep_ tables just so we have a backup. We won't deploy dep_ tables though
-			mysql_query("create table $backupDBName.$t like $dbname.$t", $dbh);
-			if(mysql_error($dbh)){
-				self::ajaxError("Could not create table $t in backup DB: " . mysql_error($dbh));
+		if(!$backupDisabled) {
+			if(! mysql_select_db($dbname, $dbh)){ self::ajaxError("Could not select database $dbname : " . mysql_error($dbh)); }
+			$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); 
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			$res14 = mysql_query("show tables", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			$allTables = array();
+			while($row = mysql_fetch_array($res14, MYSQL_NUM)){
+				array_push($allTables, $row[0]);
 			}
-			mysql_query("insert into $t select * from $dbname.$t", $dbh);
-			if(mysql_error($dbh)){
-				self::ajaxError("Could not copy table $t from $dbname database: " . mysql_error($dbh));
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			if(! mysql_select_db($backupDatabase, $dbh)){ self::ajaxError("Could not select backup database $backupDatabase : " . mysql_error($dbh)); }
+			error_log("BACKUPDB: $backupDatabase");
+			$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); ;
+
+			self::emptyDatabase($backupDatabase, $dbh);
+			foreach($allTables as $t){
+				#We're taking across all tables including dep_ tables just so we have a backup. We won't deploy dep_ tables though
+				mysql_query("create table $backupDatabase.$t like $dbname.$t", $dbh);
+				if(mysql_error($dbh)){
+					self::ajaxError("Could not create table $t in backup DB: " . mysql_error($dbh));
+				}
+				mysql_query("insert into $t select * from $dbname.$t", $dbh);
+				if(mysql_error($dbh)){
+					self::ajaxError("Could not copy table $t from $dbname database: " . mysql_error($dbh));
+				}
 			}
-		}
-		mysql_query("create table dep_backupdata (name varchar(20) NOT NULL, val varchar(255) default '')", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		mysql_query("insert into dep_backupdata values ('blogid', '" . $blogid . "')", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		mysql_query("insert into dep_backupdata values ('prefix', '" . $destTablePrefix . "')", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		mysql_query("insert into dep_backupdata values ('deployTime', '" . microtime(true) . "')", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		mysql_query("insert into dep_backupdata values ('deployFrom', '" . $sourceHost . "')", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		mysql_query("insert into dep_backupdata values ('deployTo', '" . $destHost . "')", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		mysql_query("insert into dep_backupdata values ('snapshotName', '" . $name . "')", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		mysql_query("insert into dep_backupdata values ('projectID', '" . $pid . "')", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		mysql_query("insert into dep_backupdata values ('projectName', '" . $proj['name'] . "')", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			mysql_query("create table dep_backupdata (name varchar(20) NOT NULL, val varchar(255) default '')", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			mysql_query("insert into dep_backupdata values ('blogid', '" . $blogid . "')", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			mysql_query("insert into dep_backupdata values ('prefix', '" . $destTablePrefix . "')", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			mysql_query("insert into dep_backupdata values ('deployTime', '" . microtime(true) . "')", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			mysql_query("insert into dep_backupdata values ('deployFrom', '" . $sourceHost . "')", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			mysql_query("insert into dep_backupdata values ('deployTo', '" . $destHost . "')", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			mysql_query("insert into dep_backupdata values ('snapshotName', '" . $name . "')", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			mysql_query("insert into dep_backupdata values ('projectID', '" . $pid . "')", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			mysql_query("insert into dep_backupdata values ('projectName', '" . $proj['name'] . "')", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 
-		if(! mysql_select_db($tmpDBName, $dbh)){ self::ajaxError("Could not select database $tmpDBName : " . mysql_error($dbh)); }
-		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); 
+			if(! mysql_select_db($temporaryDatabase, $dbh)){ self::ajaxError("Could not select temporary database $temporaryDatabase : " . mysql_error($dbh)); }
+			$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); 
 
-		$renames = array();
-		foreach(self::$wpTables as $t){
-			array_push($renames, "$dbname.$destTablePrefix" . "$t TO $tmpDBName.old_$t, $tmpDBName.$sourceTablePrefix" . "$t TO $dbname.$destTablePrefix" . $t);
+			$renames = array();
+			foreach(self::$wpTables as $t){
+				array_push($renames, "$dbname.$destTablePrefix" . "$t TO $temporaryDatabase.old_$t, $temporaryDatabase.$sourceTablePrefix" . "$t TO $dbname.$destTablePrefix" . $t);
+			}
+			$stime = microtime(true);
+			mysql_query("RENAME TABLE " . implode(", ", $renames), $dbh);
+			$lockTime = sprintf('%.4f', microtime(true) - $stime);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			if($temporaryDatabaseCreated){
+				mysql_query("drop database $temporaryDatabase", $dbh);
+			} else {
+				self::emptyDatabase($temporaryDatabase, $dbh);
+			}
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured trying to drop an old temporary database, but the deployment completed. Error was: " . substr(mysql_error($dbh), 0, 200)); }
+			self::deleteOldBackupDatabases();
 		}
-		$stime = microtime(true);
-		mysql_query("RENAME TABLE " . implode(", ", $renames), $dbh);
-		$lockTime = sprintf('%.4f', microtime(true) - $stime);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-		mysql_query("drop database $tmpDBName", $dbh);
-		if(mysql_error($dbh)){ self::ajaxError("A database error occured trying to drop an old temporary database, but the deployment completed. Error was: " . substr(mysql_error($dbh), 0, 200)); }
-		self::deleteOldBackupDatabases();	
 		die(json_encode(array('ok' => 1, 'lockTime' => $lockTime)));
 	}
 	public static function ajax_updateSnapDesc_callback(){
@@ -746,13 +775,16 @@ class deploymint {
 	}
 	public static function adminMenuHandler(){
 		global $wpdb;
+		extract(self::getOptions(), EXTR_OVERWRITE);
 		add_submenu_page("DeployMint", "Manage Projects", "Manage Projects", "manage_network", "DeployMint", 'deploymint::deploymintMenu');
 		add_menu_page( "DeployMint", "DeployMint", 'manage_network', 'DeployMint', 'deploymint::deploymintMenu', WP_PLUGIN_URL . '/DeployMint/images/deployMintIcon.png');
 		$projects = $wpdb->get_results($wpdb->prepare("select id, name from dep_projects where deleted=0"), ARRAY_A);
 		for($i = 0; $i < sizeof($projects); $i++){
 			add_submenu_page("DeployMint", "Proj: " . $projects[$i]['name'], "Proj: " . $projects[$i]['name'], "manage_network", "DeployMintProj" . $projects[$i]['id'], 'deploymint::projectMenu' . $projects[$i]['id']);
 		}
-		add_submenu_page("DeployMint", "Emergency Revert", "Emergency Revert", "manage_network", "DeployMintBackout", 'deploymint::undoLog');
+		if(!$backupDisabled){
+			add_submenu_page("DeployMint", "Emergency Revert", "Emergency Revert", "manage_network", "DeployMintBackout", 'deploymint::undoLog');
+		}
 		add_submenu_page("DeployMint", "Options", "Options", "manage_network", "DeployMintOptions", 'deploymint::myOptions');
 		add_submenu_page("DeployMint", "Help", "Help", "manage_network", "DeployMintHelp", 'deploymint::help');
 	}
@@ -801,37 +833,44 @@ class deploymint {
 				if(mysql_error($dbh)){ error_log("Could not drop backup database $dbToDrop when deleting old backup databases:" . mysql_error($dbh)); return; }
 			}
 		}
-
-
-
-
 	}
+
 	public static function undoLog(){
 		self::checkPerms();
 		if(! self::allOptionsSet()){ echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>'; return ; }
+		extract(self::getOptions(), EXTR_OVERWRITE);
 		$dbuser = DB_USER; $dbpass = DB_PASSWORD; $dbhost = DB_HOST; $dbname = DB_NAME;
 		$dbh = mysql_connect( $dbhost, $dbuser, $dbpass, true );
 		mysql_select_db($dbname, $dbh);
 		$res1 = mysql_query("show databases", $dbh);
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+
+		function readBackupData($dbname, $dbh){
+			$res2 = mysql_query("select * from $dbname.dep_backupdata", $dbh);
+			if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
+			$dbData = array();
+			while($row2 = mysql_fetch_array($res2, MYSQL_ASSOC)){
+				$dbData[$row2['name']] = $row2['val'];
+			}
+			$dbData['dbname'] = $dbname;
+			$dbData['deployTimeH'] = date('l jS \of F Y h:i:s A', sprintf('%d', $dbData['deployTime'] ));
+			return $dbData;
+		}
+
 		$dbs = array();
-		while($row1 = mysql_fetch_array($res1, MYSQL_NUM)){
-			if(preg_match('/^depbak__/', $row1[0])){
-				$dbname = $row1[0];
-				$res2 = mysql_query("select * from $dbname.dep_backupdata", $dbh);
-				if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
-				$dbData = array();
-				while($row2 = mysql_fetch_array($res2, MYSQL_ASSOC)){
-					$dbData[$row2['name']] = $row2['val'];
+		if($backupDatabase == '') {
+			while($row1 = mysql_fetch_array($res1, MYSQL_NUM)){
+				if(preg_match('/^depbak__/', $row1[0])){
+					array_push($dbs, readBackupData($row1[0], $dbh));
 				}
-				$dbData['dbname'] = $dbname;
-				$dbData['deployTimeH'] = date('l jS \of F Y h:i:s A', sprintf('%d', $dbData['deployTime'] ));
-				array_push($dbs, $dbData);
+			}
+			function deployTimeSort($b, $a){ if($a['deployTime'] == $b['deployTime']){ return 0; } return ($a['deployTime'] < $b['deployTime']) ? -1 : 1; }
+			usort($dbs, 'deployTimeSort');
+		} else {
+			if (!$backupDisabled) {
+				array_push($dbs, readBackupData($backupDatabase, $dbh));
 			}
 		}
-		function deployTimeSort($b, $a){ if($a['deployTime'] == $b['deployTime']){ return 0; } return ($a['deployTime'] < $b['deployTime']) ? -1 : 1; }
-		usort($dbs, 'deployTimeSort');
-
 
 		include 'undoLog.php';
 	}
@@ -846,13 +885,13 @@ class deploymint {
 		}
 
 		echo "<p><strong>$message</strong></p></div>";
-	}   
+	}	 
 	public static function msgDataDir(){ deploymint::showMessage("You need to visit the options page for \"DeployMint\" and configure all options including a data directory that is writable by your web server.", true); }
 	public static function msgMultisite(){ deploymint::showMessage("The DeployMint plugin is designed to be used with WordPress MU. You are running an ordinary WordPress installation and need to convert your blog to WordPress MU to use DeployMint. You can learn how to <a href=\"http://codex.wordpress.org/Create_A_Network\" target=\"_blank\">convert this blog to WordPress MU on this page (opens a new window)</a>.", true); }
 	public static function mexec($cmd, $cwd = './', $env = NULL){
 		$dspec = array(
-				0 => array("pipe", "r"),  //stdin
-				1 => array("pipe", "w"),  //stdout
+				0 => array("pipe", "r"), //stdin
+				1 => array("pipe", "w"), //stdout
 				2 => array("pipe", "w") //stderr
 				);
 		$proc = proc_open($cmd, $dspec, $pipes, $cwd);

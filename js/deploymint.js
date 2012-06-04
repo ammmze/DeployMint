@@ -9,23 +9,16 @@ window['deploymint'] = {
 	init: function(){
 		jQuery('#sdAjaxLoading').hide().ajaxStart(function(){ jQuery(this).show(); }).ajaxStop(function(){ jQuery(this).hide(); });
 	},
-	updateOptions: function(git, mysql, mysqldump, datadir, numBackups, preserveBlogName){
+	updateOptions: function(data){
 		var self = this;
 		jQuery('#sdOptErrors').hide();
 		jQuery('#sdOptErrors').empty();
+		data.action = "deploymint_updateOptions"
 		jQuery.ajax({
 			type: "POST",
 			url: DeployMintVars.ajaxURL,
 			dataType: "json",
-			data: {
-				action: "deploymint_updateOptions",
-				git: git,
-				mysql: mysql,
-				mysqldump: mysqldump,
-				datadir: datadir,
-				numBackups: numBackups,
-				preserveBlogName: preserveBlogName
-				},
+			data: data,
 			success: function(resp){
 				if(resp.errs){
 					for(var i = 0; i < resp.errs.length; i++){
