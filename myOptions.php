@@ -15,8 +15,8 @@
             }).trigger('change');
 
             $("#sdNumBackups").bind('change.numBackups', function(){
-                if (this.value < 1) {
-                    this.value = 1;
+                if (this.value < 0) {
+                    this.value = 0;
                 }
 
                 var val = this.value;
