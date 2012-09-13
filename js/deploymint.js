@@ -9,7 +9,7 @@ window['deploymint'] = {
 	init: function(){
 		jQuery('#sdAjaxLoading').hide().ajaxStart(function(){ jQuery(this).show(); }).ajaxStop(function(){ jQuery(this).hide(); });
 	},
-	updateOptions: function(git, mysql, mysqldump, datadir, numBackups){
+	updateOptions: function(git, mysql, mysqldump, datadir, numBackups, preserveBlogName){
 		var self = this;
 		jQuery('#sdOptErrors').hide();
 		jQuery('#sdOptErrors').empty();
@@ -23,7 +23,8 @@ window['deploymint'] = {
 				mysql: mysql,
 				mysqldump: mysqldump,
 				datadir: datadir,
-				numBackups: numBackups
+				numBackups: numBackups,
+				preserveBlogName: preserveBlogName
 				},
 			success: function(resp){
 				if(resp.errs){

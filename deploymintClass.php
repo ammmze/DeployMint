@@ -9,7 +9,7 @@
 define('ERRORLOGFILE', '/var/log/wp_errors');
 class deploymint {
 	private static $wpTables = array('commentmeta', 'comments', 'links', 'options', 'postmeta', 'posts', 'term_relationships', 'term_taxonomy', 'terms');
-	public function installPlugin(){
+	public static function installPlugin(){
 		$dbuser = DB_USER; $dbpass = DB_PASSWORD; $dbhost = DB_HOST; $dbname = DB_NAME;
 		$dbh = mysql_connect( $dbhost, $dbuser, $dbpass, true );
 		mysql_select_db($dbname, $dbh);
@@ -40,9 +40,10 @@ class deploymint {
 		}
 		if(! array_key_exists('numBackups', $options)){ $options['numBackups'] = 5; }
 		if(! array_key_exists('datadir', $options)){ $options['datadir'] = ""; }
+		if(! array_key_exists('preserveBlogName', $options)){ $options['preserveBlogName'] = 1; }
 		self::updateOptions($options);
 	}
-	private function getOptions(){
+	private static function getOptions(){
 		global $wpdb;
 		$res = $wpdb->get_results($wpdb->prepare("select name, val from dep_options"), ARRAY_A);
 		$options = array();
@@ -51,17 +52,17 @@ class deploymint {
 		}
 		return $options;
 	}
-	private function updateOptions($o){
+	private static function updateOptions($o){
 		global $wpdb;
 		foreach($o as $n => $v){
 			$wpdb->query($wpdb->prepare("insert into dep_options (name, val) values (%s, %s) ON DUPLICATE KEY UPDATE val=%s", $n, $v, $v));
 		}
 	}
-	private function setOption($name, $val){
+	private static function setOption($name, $val){
 		global $wpdb;
 		$wpdb->query($wpdb->prepare("insert into dep_options (name, val) values (%s, %s) ON DUPLICATE KEY UPDATE val=%s", $name, $val, $val));
 	}
-	private function allOptionsSet(){
+	private static function allOptionsSet(){
 		global $wpdb;
 		$options = self::getOptions();
 		foreach(array('git', 'mysql', 'mysqldump', 'datadir') as $v){
@@ -74,7 +75,7 @@ class deploymint {
 		}
 		return true;
 	}
-	public function setup(){
+	public static function setup(){
 		global $wpdb;
 		if(is_admin()){
 			add_action('admin_menu', 'deploymint::adminMenuHandler');
@@ -171,6 +172,10 @@ class deploymint {
 		if(! preg_match('/^\d+$/', $numBackups)){
 			$errs[] = "Please specify a number for the number of backups you want to keep.";
 		}
+		$preserveBlogName = trim($_POST['preserveBlogName']);
+		if ($preserveBlogName != 0 && $preserveBlogName != 1) {
+			$errs[] = "Invalid value for preserveBlogName. Expected 1 or 0. Received $preserveBlogName";
+		}
 		if(sizeof($errs) > 0){
 			die(json_encode(array('errs' => $errs)));
 		}
@@ -198,7 +203,8 @@ class deploymint {
 				'mysql' => $mysql,
 				'mysqldump' => $mysqldump,
 				'datadir' => $datadir,
-				'numBackups' => $numBackups
+				'numBackups' => $numBackups,
+				'preserveBlogName' => $preserveBlogName
 				);
 			self::updateOptions($options);
 			die(json_encode(array('ok' => 1)));
@@ -430,7 +436,11 @@ class deploymint {
 		} else {
 			$destTablePrefix = $wpdb->base_prefix . $blogid . '_';
 		}
-		$res3 = $wpdb->get_results($wpdb->prepare("select option_name, option_value from $destTablePrefix" . "options where option_name IN ('siteurl', 'home')"), ARRAY_A);
+		$optionsToRestore = array('siteurl','home');
+		if ($opt['preserveBlogName']) {
+			$optionsToRestore[] = 'blogname';
+		}
+		$res3 = $wpdb->get_results($wpdb->prepare("select option_name, option_value from $destTablePrefix" . "options where option_name IN ('" . implode("','", $optionsToRestore) . "')"), ARRAY_A);
 		if(sizeof($res3) < 1){
 			self::ajaxError("We could not find the data we need for the blog you're trying to deploy to.");
 		}

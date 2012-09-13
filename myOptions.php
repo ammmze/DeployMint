@@ -17,8 +17,9 @@
 	<tr><th>Path to mysqldump:</th><td><input type="text" id="sdPathToMysqldump" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['mysqldump']) ?>" /></td></tr>
 	<tr><th>Path to a data directory for DeployMint:</th><td><input type="text" id="sdPathToDataDir" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['datadir']) ?>" /></td></tr>
 	<tr><th>How many backups of your Wordpress database should we keep after each deploy:</th><td><input type="text" id="sdNumBackups" size="3" maxlength="255" value="<?php echo htmlspecialchars($opt['numBackups']) ?>" /></td></tr>
+	<tr><th>Would you like to preserve the destination Blog Name when deploying a snapshot:</th><td><input type="checkbox" id="sdPreserveBlogName" value="1" <?php echo ($opt['preserveBlogName']) ? 'checked=checked' : ''?> /></td></tr>
 	</table>
 	<p class="submit">
-		<input type="submit" class="button-primary" value="<?php _e('Save Changes') ?>" onclick="deploymint.updateOptions(jQuery('#sdPathToGit').val(), jQuery('#sdPathToMysql').val(), jQuery('#sdPathToMysqldump').val(), jQuery('#sdPathToDataDir').val(), jQuery('#sdNumBackups').val()); return false;" />
+		<input type="submit" class="button-primary" value="<?php _e('Save Changes') ?>" onclick="deploymint.updateOptions(jQuery('#sdPathToGit').val(), jQuery('#sdPathToMysql').val(), jQuery('#sdPathToMysqldump').val(), jQuery('#sdPathToDataDir').val(), jQuery('#sdNumBackups').val(), (jQuery('#sdPreserveBlogName').is(':checked') ? 1 : 0)); return false;" />
 	</p>
 </div>
