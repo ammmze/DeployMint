@@ -121,8 +121,8 @@ class deploymint {
 	}
 	public static function setup(){
 		global $wpdb;
-		if(is_admin()){
-			add_action('admin_menu', 'deploymint::adminMenuHandler');
+		if(is_network_admin()){
+			add_action('network_admin_menu', 'deploymint::adminMenuHandler');
 		}
 		add_action('init', 'deploymint::initHandler');
 		//wp_deregister_script( 'jquery' );
