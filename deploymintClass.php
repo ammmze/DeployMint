@@ -43,10 +43,23 @@ class deploymint {
 		if(! array_key_exists('preserveBlogName', $options)){ $options['preserveBlogName'] = 1; }
 		self::updateOptions($options);
 	}
+	private static function getDefaultOptions() {
+		return array(
+			'git' 				=> '',
+			'mysql' 			=> '',
+			'mysqldump' 		=> '',
+			'numBackups' 		=> 5,
+			'datadir' 			=> '',
+			'preserveBlogName' 	=> 1,
+			'backupDisabled' 	=> 0,
+			'temporaryDatabase'	=> '',
+			'backupDatabase' 	=> '',
+		);
+	}
 	private static function getOptions($createTemporaryDatabase = false, $createBackupDatabase = false){
 		global $wpdb;
 		$res = $wpdb->get_results($wpdb->prepare("select name, val from dep_options"), ARRAY_A);
-		$options = array();
+		$options = self::getDefaultOptions();
 		for($i = 0; $i < sizeof($res); $i++){
 			$options[$res[$i]['name']] = $res[$i]['val'];
 		}
@@ -710,7 +723,7 @@ class deploymint {
 		global $wpdb;
 		$blogsTable = $wpdb->base_prefix . 'blogs';
 		$projects = $wpdb->get_results($wpdb->prepare("select id, name from dep_projects where deleted=0"), ARRAY_A);
-		$allBlogs = $wpdb->get_results($wpdb->prepare("select blog_id, domain from $blogsTable, path from $blogsTable order by domain asc"), ARRAY_A);
+		$allBlogs = $wpdb->get_results($wpdb->prepare("select blog_id, domain, path from $blogsTable order by domain asc"), ARRAY_A);
 		for($i = 0; $i < sizeof($projects); $i++){
 			$mem = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain, $blogsTable.path as path from dep_members, $blogsTable where dep_members.deleted=0 and dep_members.project_id=%d and dep_members.blog_id = $blogsTable.blog_id", $projects[$i]['id']), ARRAY_A);
 			$projects[$i]['memberBlogs'] = $mem;
@@ -722,7 +735,7 @@ class deploymint {
 				}
 				$notSQL = "where blog_id NOT IN (" . implode(",", $memids) . ")";
 			}
-			$nonmem = $wpdb->get_results($wpdb->prepare("select blog_id, domain from $blogsTable, path from $blogsTable $notSQL order by domain asc"), ARRAY_A);
+			$nonmem = $wpdb->get_results($wpdb->prepare("select blog_id, domain, path from $blogsTable $notSQL order by domain asc"), ARRAY_A);
 			$projects[$i]['nonmemberBlogs'] = $nonmem;
 			$projects[$i]['numNonmembers'] = sizeof($nonmem);
 
