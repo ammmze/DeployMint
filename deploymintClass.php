@@ -58,6 +58,8 @@ class deploymint {
 	}
 	private static function getOptions($createTemporaryDatabase = false, $createBackupDatabase = false){
 		global $wpdb;
+		$dbuser = DB_USER; $dbpass = DB_PASSWORD; $dbhost = DB_HOST; $dbname = DB_NAME;
+		$dbh = mysql_connect( $dbhost, $dbuser, $dbpass, true );
 		$res = $wpdb->get_results($wpdb->prepare("select name, val from dep_options"), ARRAY_A);
 		$options = self::getDefaultOptions();
 		for($i = 0; $i < sizeof($res); $i++){
@@ -82,7 +84,7 @@ class deploymint {
 		$options['backupDatabaseCreated'] = false;
 		if($options['backupDatabase'] == '' && $createBackupDatabase && !$options['backupDisabled']){
 			$options['backupDatabase'] = "depbak__" . preg_replace('/\./', '', microtime(true));
-			mysql_query("create database $backupDatabase", $dbh);
+			mysql_query("create database " . $options['backupDatabase'], $dbh) || self::ajaxError('Could not create backup database. ' . mysql_error($dbh));
 			$options['backupDatabaseCreated'] = true;
 		}
 		return $options;
