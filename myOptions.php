@@ -18,15 +18,6 @@
                 if (this.value < 0) {
                     this.value = 0;
                 }
-
-                var val = this.value;
-
-                if (this.value == 1) {
-                    $('.backup-name').show();
-                } else {
-                    $('.backup-name').hide();
-                    $('#sdBackupDatabase').val('');
-                }
             }).trigger('change');
 
             $("#sdNumBackups").bind('keyup.numBackups', function () {
@@ -73,13 +64,13 @@
         <th>Backup disabled:</th>
         <td><input type="checkbox" id="sdBackupDisabled" <?php if ($opt['backupDisabled'] != ''){echo 'checked="checked"';} ?> /></td>
     </tr>
-    <tr class="backup-enabled backup-count">
-        <th style="padding-left: 20px;">How many backups of your Wordpress database should we keep after each deploy:</th>
-        <td><input type="text" id="sdNumBackups" size="3" maxlength="255" value="<?php echo htmlspecialchars($opt['numBackups']) ?>" /></td>
-    </tr>
     <tr class="backup-enabled backup-name">
         <th style="padding-left: 20px;">Backup database:</th>
         <td><input type="text" id="sdBackupDatabase" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['backupDatabase']) ?>" /></td>
+    </tr>
+    <tr class="backup-enabled backup-count">
+        <th style="padding-left: 20px;">How many backups of your Wordpress database should we keep after each deploy:</th>
+        <td><input type="text" id="sdNumBackups" size="3" maxlength="255" value="<?php echo htmlspecialchars($opt['numBackups']) ?>" /></td>
     </tr>
     </table>
     <p class="submit">
