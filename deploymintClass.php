@@ -99,7 +99,7 @@ class deploymint {
     private static function updateOptions($o){
         global $wpdb;
         foreach($o as $n => $v){
-            $wpdb->query($wpdb->prepare("insert into dep_options (name, val) values (%s, %s) ON DUPLICATE KEY UPDATE val=%s", $n, $v, $v));
+            self::setOption($n, $v);
         }
     }
     private static function setOption($name, $val){
