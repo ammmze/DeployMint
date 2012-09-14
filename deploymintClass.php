@@ -360,7 +360,11 @@ class deploymint {
         }
         fclose($fh2);
         $prefixOut = self::mexec("$git add deployData.txt 2>&1", $dir);
-
+        
+        // Add the Media locations
+        $files = self::mexec("rsync -r -d " . WP_CONTENT_DIR . "/blogs.dir/$blogid/* $dir" . "blogs.dir/");
+        $filesOut = self::mexec("$git add blogs.dir/ 2>&1", $dir);
+        
         $siteURLRes = $wpdb->get_results($wpdb->prepare("select option_name, option_value from $prefix" . "options where option_name = 'siteurl'"), ARRAY_A);
         $siteURL = $siteURLRes[0]['option_value'];
         $desc = "Snapshot of: $siteURL\n" . $desc;
