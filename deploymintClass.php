@@ -680,6 +680,11 @@ class deploymint
             }
         }
 
+        mysql_query("UPDATE {$temporaryDatabase}.{$sourceTablePrefix}options SET option_name='{$destTablePrefix}user_roles' WHERE option_name='{$sourceTablePrefix}user_roles'", $dbh);
+        if (mysql_error($dbh)) {
+            self::ajaxError("A database error occured while updating the user_roles option in the destination database: " . substr(mysql_error($dbh), 0, 200));
+        }
+
         if ($leaveComments) {
             //Delete comments from DB we're deploying
             mysql_query("delete from $sourceTablePrefix" . "comments", $dbh);
