@@ -1156,7 +1156,7 @@ class deploymint
         }
 
         $dbs = array();
-        if ($backupDatabase == '') {
+        if ($backupDatabase == '' || ($numBackups != 1)) {
             while ($row1 = mysql_fetch_array($res1, MYSQL_NUM)) {
                 $dbPrefix = ($backupDatabase == '') ? 'depbak' : $backupDatabase;
                 if (preg_match('/^' . $dbPrefix . '__/', $row1[0])) {
