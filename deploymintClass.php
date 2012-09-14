@@ -825,7 +825,8 @@ class deploymint {
         if(mysql_error($dbh)){ error_log("A database error occured: " . mysql_error($dbh)); return ; }
         $dbs = array();
         while($row1 = mysql_fetch_array($res1, MYSQL_NUM)){
-            if(preg_match('/^depbak__/', $row1[0])){
+            $dbPrefix = ($backupDatabase == '') ? 'depbak' : $backupDatabase;
+            if(preg_match('/^'.$dbPrefix.'__/', $row1[0])){
                 $dbname = $row1[0];
                 $res2 = mysql_query("select val from $dbname.dep_backupdata where name='deployTime'", $dbh);
                 if(mysql_error($dbh)){ error_log("Could not get deployment time for $dbname database"); return; }
@@ -848,6 +849,7 @@ class deploymint {
                 if(mysql_error($dbh)){ error_log("Could not drop backup database $dbToDrop when deleting old backup databases:" . mysql_error($dbh)); return; }
             }
         }
+
     }
 
     public static function undoLog(){
@@ -875,7 +877,8 @@ class deploymint {
         $dbs = array();
         if($backupDatabase == '') {
             while($row1 = mysql_fetch_array($res1, MYSQL_NUM)){
-                if(preg_match('/^depbak__/', $row1[0])){
+                $dbPrefix = ($backupDatabase == '') ? 'depbak' : $backupDatabase;
+                if(preg_match('/^'.$dbPrefix.'__/', $row1[0])){
                     array_push($dbs, readBackupData($row1[0], $dbh));
                 }
             }
