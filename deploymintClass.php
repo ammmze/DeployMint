@@ -604,6 +604,9 @@ class deploymint
             $options[$res3[$i]['option_name']] = $res3[$i]['option_value'];
         }
 
+        // Update the Media folder
+        $files = self::mexec("rsync -r -d $dir" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogid/");
+        
         $fh = fopen($dir . 'deployData.txt', 'r');
         $deployData = fread($fh, 100);
         $depDat = explode(':', $deployData);
