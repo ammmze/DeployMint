@@ -175,7 +175,7 @@ class deploymint
         add_action('wp_ajax_deploymint_deleteBackups', 'deploymint::ajax_deleteBackups_callback');
         add_action('wp_ajax_deploymint_updateOptions', 'deploymint::ajax_updateOptions_callback');
         if (!self::allOptionsSet() && is_multisite()) {
-            add_action('admin_notices', 'deploymint::msgDataDir');
+            add_action('network_admin_notices', 'deploymint::msgDataDir');
         }
         if (!is_multisite()) {
             add_Action('admin_notices', 'deploymint::msgMultisite');
