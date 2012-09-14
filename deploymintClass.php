@@ -597,7 +597,7 @@ class deploymint
         } else {
             $destTablePrefix = $wpdb->base_prefix . $blogid . '_';
         }
-        $optionsToRestore = array('siteurl', 'home');
+        $optionsToRestore = array('siteurl', 'home', 'upload_path');
         if ($opt['preserveBlogName']) {
             $optionsToRestore[] = 'blogname';
         }
