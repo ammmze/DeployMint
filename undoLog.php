@@ -26,6 +26,7 @@
             <td class="deploymintCellHeading deploymintPadCell">Snapshot</td>
             <td class="deploymintCellHeading deploymintPadCell">Deployed From</td>
             <td class="deploymintCellHeading deploymintPadCell">Deployed To</td>
+            <td class="deploymintCellHeading deploymintPadCell">Database Name</td>
             <td class="deploymintCellHeading deploymintPadCell"></td>
         </tr>
 
@@ -39,6 +40,7 @@
             <td class="deploymintPadCell"><?php echo $db['snapshotName'] ?></td>
             <td class="deploymintPadCell"><?php echo $db['deployFrom'] ?></td>
             <td class="deploymintPadCell"><?php echo $db['deployTo'] ?></td>
+            <td class="deploymintPadCell"><?php echo $db['dbname'] ?></td>
             <td class="deploymintPadCell"><a href="#" onclick="deploymint.undoDeploy('<?php echo $db['dbname'] ?>'); return false;">Revert Wordpress Installation to state prior to this deployment</a></td>
             </tr>
 
