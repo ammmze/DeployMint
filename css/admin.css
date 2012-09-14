@@ -40,3 +40,13 @@ h2.depmintHead {
     font-size: 23px;
     line-height: 29px;
 }
+
+tr.note {
+    font-size: 10px;
+    font-style: italic;
+    color: #555;
+}
+tr.note th {
+    color: #555;
+    padding-top: 0;
+}

@@ -38,9 +38,6 @@ class deploymint {
         foreach(array('git', 'mysql', 'mysqldump') as $n){
             $options[$n] = $options[$n] ? $options[$n] : trim(self::mexec("which $n") );
         }
-        if(! array_key_exists('numBackups', $options)){ $options['numBackups'] = 5; }
-        if(! array_key_exists('datadir', $options)){ $options['datadir'] = ""; }
-        if(! array_key_exists('preserveBlogName', $options)){ $options['preserveBlogName'] = 1; }
         self::updateOptions($options);
     }
     private static function getDefaultOptions() {
@@ -82,14 +79,15 @@ class deploymint {
             $options['temporaryDatabaseCreated'] = true;
         }
         $options['backupDatabaseCreated'] = false;
-        if($options['backupDatabase'] == '' && $createBackupDatabase && !$options['backupDisabled']){
-            $options['backupDatabase'] = "depbak__" . preg_replace('/\./', '', microtime(true));
+        if($createBackupDatabase && !$options['backupDisabled'] && $options['numBackups'] != 1){
+            $dbPrefix = ($options['backupDatabase'] == '') ? 'depbak' : $options['backupDatabase'];
+            $options['backupDatabase'] = $dbPrefix . '__' . preg_replace('/\./', '', microtime(true));
             mysql_query("create database " . $options['backupDatabase'], $dbh) || self::ajaxError('Could not create backup database. ' . mysql_error($dbh));
             $options['backupDatabaseCreated'] = true;
         }
         return $options;
     }
-    private function emptyDatabase($database, $connection) {
+    private static function emptyDatabase($database, $connection) {
         if ($result = mysql_query("SHOW TABLES IN $database", $connection)) {
             while($row = mysql_fetch_array($result, MYSQL_NUM)) {
                 mysql_query('DROP TABLE IF EXISTS '.$row[0], $connection);
@@ -201,6 +199,7 @@ class deploymint {
     }
     public static function ajax_updateOptions_callback(){
         self::checkPerms();
+        $defaultOptions = self::getDefaultOptions();
         $git = trim($_POST['git']);
         $mysql = trim($_POST['mysql']);
         $mysqldump = trim($_POST['mysqldump']);
@@ -217,7 +216,11 @@ class deploymint {
             $errs[] = "You must specify a value for all options.";
         }
         if(! preg_match('/^\d+$/', $numBackups)){
-            $errs[] = "Please specify a number for the number of backups you want to keep.";
+            if ($backupDisabled) {
+                $numBackups = $defaultOptions['numBackups'];
+            } else {
+                $errs[] = "The number of backups you specify must be a number or 0 to keep all bacukps.";
+            }
         }
         $preserveBlogName = trim($_POST['preserveBlogName']);
         if ($preserveBlogName != 0 && $preserveBlogName != 1) {
@@ -238,9 +241,6 @@ class deploymint {
             }
             fclose($fh);
             unlink($datadir . '/test.tmp');
-        }
-        if(! preg_match('/^\d+$/', $numBackups)){
-            $errs[] = "The number of backups you specify must be a number or 0 to keep all bacukps.";
         }
         if(sizeof($errs) > 0){
             die(json_encode(array('errs' => $errs)));

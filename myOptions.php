@@ -38,27 +38,32 @@
     <table class="form-table">
     <tr>
         <th>Path to git:</th>
-        <td><input type="text" id="sdPathToGit" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['git']) ?>" /></td>
+        <td><input type="text" id="sdPathToGit" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['git']) ?>" /></td>
     </tr>
     <tr>
         <th>Path to mysql:</th>
-        <td><input type="text" id="sdPathToMysql" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['mysql']) ?>" /></td>
+        <td><input type="text" id="sdPathToMysql" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['mysql']) ?>" /></td>
     </tr>
     <tr>
         <th>Path to mysqldump:</th>
-        <td><input type="text" id="sdPathToMysqldump" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['mysqldump']) ?>" /></td>
+        <td><input type="text" id="sdPathToMysqldump" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['mysqldump']) ?>" /></td>
     </tr>
     <tr>
         <th style="white-space: nowrap;">Path to a data directory for DeployMint:</th>
-        <td><input type="text" id="sdPathToDataDir" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['datadir']) ?>" /></td>
+        <td><input type="text" id="sdPathToDataDir" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['datadir']) ?>" /></td>
     </tr>
     <tr>
-        <th>Would you like to preserve the destination Blog Name when deploying a snapshot:</th>
+        <th>Preserve blog name:</th>
         <td><input type="checkbox" id="sdPreserveBlogName" value="1" <?php echo ($opt['preserveBlogName']) ? 'checked=checked' : ''?> /></td>
+    </tr>
+    <tr class="note">
+        <th colspan="2" style="padding-left: 20px;">
+            Checking this box will allow the blog name / site title to be preserved. So deploying a snapshot will not overwrite the destinations blog name.
+        </th>
     </tr>
     <tr>
         <th>Tempory database:</th>
-        <td><input type="text" id="sdTemporaryDatabase" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['temporaryDatabase']) ?>" /></td>
+        <td><input type="text" id="sdTemporaryDatabase" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['temporaryDatabase']) ?>" /></td>
     </tr>
     <tr>
         <th>Backup disabled:</th>
@@ -66,11 +71,17 @@
     </tr>
     <tr class="backup-enabled backup-name">
         <th style="padding-left: 20px;">Backup database:</th>
-        <td><input type="text" id="sdBackupDatabase" size="20" maxlength="255" value="<?php echo htmlspecialchars($opt['backupDatabase']) ?>" /></td>
+        <td><input type="text" id="sdBackupDatabase" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['backupDatabase']) ?>" /></td>
+    </tr>
+    <tr class="backup-enabled note">
+        <th colspan="2" style="padding-left: 30px;">If we are only using 1 backup, then we will use this as the name of backup database. If the Number of backups is set to anything else, we will create a database using this value as the database name prefix.</th>
     </tr>
     <tr class="backup-enabled backup-count">
-        <th style="padding-left: 20px;">How many backups of your Wordpress database should we keep after each deploy:</th>
+        <th style="padding-left: 20px;">Number of backups:</th>
         <td><input type="text" id="sdNumBackups" size="3" maxlength="255" value="<?php echo htmlspecialchars($opt['numBackups']) ?>" /></td>
+    </tr>
+    <tr class="backup-enabled note">
+        <th colspan="2" style="padding-left: 30px;">This is the number of backups we will keep after each deploy. Once we have saved this number of backups, we will remove the oldest one after each deploy.</th>
     </tr>
     </table>
     <p class="submit">
