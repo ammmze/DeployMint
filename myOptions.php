@@ -49,6 +49,10 @@
         <td><input type="text" id="sdPathToMysqldump" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['mysqldump']) ?>" /></td>
     </tr>
     <tr>
+        <th>Path to rsync:</th>
+        <td><input type="text" id="sdPathToRsync" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['rsync']) ?>" /></td>
+    </tr>    
+    <tr>
         <th style="white-space: nowrap;">Path to a data directory for DeployMint:</th>
         <td><input type="text" id="sdPathToDataDir" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['datadir']) ?>" /></td>
     </tr>
@@ -85,6 +89,6 @@
     </tr>
     </table>
     <p class="submit">
-        <input type="submit" class="button-primary" value="<?php _e('Save Changes') ?>" onclick="deploymint.updateOptions({git: jQuery('#sdPathToGit').val(), mysql: jQuery('#sdPathToMysql').val(), mysqldump: jQuery('#sdPathToMysqldump').val(), datadir: jQuery('#sdPathToDataDir').val(), numBackups: jQuery('#sdNumBackups').val(), temporaryDatabase: jQuery('#sdTemporaryDatabase').val(), backupDatabase: jQuery('#sdBackupDatabase').val(), backupDisabled: jQuery('#sdBackupDisabled').attr('checked'),preserveBlogName: (jQuery('#sdPreserveBlogName').is(':checked') ? 1 : 0)}); return false;" />
+        <input type="submit" class="button-primary" value="<?php _e('Save Changes') ?>" onclick="deploymint.updateOptions({git: jQuery('#sdPathToGit').val(), mysql: jQuery('#sdPathToMysql').val(), mysqldump: jQuery('#sdPathToMysqldump').val(), rsync: jQuery('#sdPathToRsync').val(), datadir: jQuery('#sdPathToDataDir').val(), numBackups: jQuery('#sdNumBackups').val(), temporaryDatabase: jQuery('#sdTemporaryDatabase').val(), backupDatabase: jQuery('#sdBackupDatabase').val(), backupDisabled: jQuery('#sdBackupDisabled').attr('checked'),preserveBlogName: (jQuery('#sdPreserveBlogName').is(':checked') ? 1 : 0)}); return false;" />
     </p>
 </div>

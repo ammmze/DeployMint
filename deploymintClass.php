@@ -50,7 +50,7 @@ class deploymint
             die("Database error creating table for DeployMint: " . mysql_error($dbh));
         }
         $options = self::getOptions();
-        foreach (array('git', 'mysql', 'mysqldump') as $n) {
+        foreach (array('git', 'mysql', 'mysqldump', 'rsync') as $n) {
             $options[$n] = $options[$n] ? $options[$n] : trim(self::mexec("which $n"));
         }
         self::updateOptions($options);
@@ -62,6 +62,7 @@ class deploymint
             'git' => '',
             'mysql' => '',
             'mysqldump' => '',
+            'rsync' => '',
             'numBackups' => 5,
             'datadir' => '',
             'preserveBlogName' => 1,
@@ -137,7 +138,7 @@ class deploymint
     {
         global $wpdb;
         $options = self::getOptions();
-        foreach (array('git', 'mysql', 'mysqldump', 'datadir') as $v) {
+        foreach (array('git', 'mysql', 'mysqldump', 'rsync', 'datadir') as $v) {
             if (!$options[$v]) {
                 return false;
             }
@@ -253,6 +254,7 @@ class deploymint
         $git = trim($_POST['git']);
         $mysql = trim($_POST['mysql']);
         $mysqldump = trim($_POST['mysqldump']);
+        $rsync = trim($_POST['rsync']);
         $datadir = trim($_POST['datadir']);
         if (!preg_match('/\/$/', $datadir)) {
             $datadir .= '/';
@@ -262,7 +264,7 @@ class deploymint
         $backupDisabled = trim($_POST['backupDisabled']) != '' ? 1 : 0;
         $backupDatabase = trim($_POST['backupDatabase']);
         $errs = array();
-        if (!($git && $mysql && $mysqldump && $datadir)) {
+        if (!($git && $mysql && $mysqldump && $rsync && $datadir)) {
             $errs[] = "You must specify a value for all options.";
         }
         if (!preg_match('/^\d+$/', $numBackups)) {
@@ -285,6 +287,9 @@ class deploymint
         if (!file_exists($mysqldump)) {
             $errs[] = "The file '$mysqldump' specified for mysqldump doesn't exist.";
         }
+        if (!file_exists($rsync)) {
+            $errs[] = "The file '$rsync' specified for rsync doesn't exist.";
+        }        
         if (!file_exists($git)) {
             $errs[] = "The file '$git' specified for git doesn't exist.";
         }
@@ -305,6 +310,7 @@ class deploymint
                 'git' => $git,
                 'mysql' => $mysql,
                 'mysqldump' => $mysqldump,
+                'rsync' => $rsync,
                 'datadir' => $datadir,
                 'numBackups' => $numBackups,
                 'temporaryDatabase' => $temporaryDatabase,
@@ -435,7 +441,7 @@ class deploymint
         $prefixOut = self::mexec("$git add deployData.txt 2>&1", $dir);
 
         // Add the Media locations
-        $files = self::mexec("rsync -r -d " . WP_CONTENT_DIR . "/blogs.dir/$blogid/* $dir" . "blogs.dir/");
+        $files = self::mexec("$rsync -r -d " . WP_CONTENT_DIR . "/blogs.dir/$blogid/* $dir" . "blogs.dir/");
         $filesOut = self::mexec("$git add blogs.dir/ 2>&1", $dir);
 
         $siteURLRes = $wpdb->get_results($wpdb->prepare("select option_name, option_value from $prefix" . "options where option_name = 'siteurl'"), ARRAY_A);
@@ -605,7 +611,7 @@ class deploymint
         }
 
         // Update the Media folder
-        $files = self::mexec("rsync -r -d $dir" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogid/");
+        $files = self::mexec("$rsync -r -d $dir" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogid/");
         
         $fh = fopen($dir . 'deployData.txt', 'r');
         $deployData = fread($fh, 100);
