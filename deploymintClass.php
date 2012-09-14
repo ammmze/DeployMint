@@ -1134,12 +1134,12 @@ class deploymint
         if (mysql_error($dbh)) {
             self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
         }
-
+        
         function readBackupData($dbname, $dbh)
         {
             $res2 = mysql_query("select * from $dbname.dep_backupdata", $dbh);
             if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+                deploymint::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
             $dbData = array();
             while ($row2 = mysql_fetch_array($res2, MYSQL_ASSOC)) {
