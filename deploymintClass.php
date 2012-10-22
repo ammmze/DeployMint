@@ -152,14 +152,15 @@ class deploymint
     public static function setup()
     {
         global $wpdb;
-        if (is_network_admin()) {
+        if (is_network_admin() && is_multisite()) {
             add_action('network_admin_menu', 'deploymint::adminMenuHandler');
+        } elseif (is_admin() && !is_multisite()) {
+            add_action('admin_menu', 'deploymint::adminMenuHandler');
         }
         add_action('init', 'deploymint::initHandler');
-        //wp_deregister_script( 'jquery' );
-        //wp_enqueue_script('jquery', plugin_dir_url( __FILE__ ) . 'js/jquery-1.6.2.js', array( ) );
-        wp_register_style('DeployMintCSS', plugin_dir_url(__FILE__) . 'css/admin.css');
-        wp_enqueue_style('DeployMintCSS');
+        add_action('wp_enqueue_scripts', 'deploymint::enqueue_scripts');
+        add_action('wp_enqueue_styles', 'deploymint::enqueue_styles');
+        
         add_action('wp_ajax_deploymint_deploy', 'deploymint::ajax_deploy_callback');
         add_action('wp_ajax_deploymint_createProject', 'deploymint::ajax_createProject_callback');
         add_action('wp_ajax_deploymint_reloadProjects', 'deploymint::ajax_reloadProjects_callback');
@@ -174,12 +175,25 @@ class deploymint
         add_action('wp_ajax_deploymint_deleteProject', 'deploymint::ajax_deleteProject_callback');
         add_action('wp_ajax_deploymint_deleteBackups', 'deploymint::ajax_deleteBackups_callback');
         add_action('wp_ajax_deploymint_updateOptions', 'deploymint::ajax_updateOptions_callback');
-        if (!self::allOptionsSet() && is_multisite()) {
-            add_action('network_admin_notices', 'deploymint::msgDataDir');
+        if (!self::allOptionsSet()) {
+            if (is_multisite()) {
+                add_action('network_admin_notices', 'deploymint::msgDataDir');
+            } else {
+                add_action('admin_notices', 'deploymint::msgDataDir');
+            }
         }
-        if (!is_multisite()) {
-            add_Action('admin_notices', 'deploymint::msgMultisite');
-        }
+    }
+
+    public static function enqueue_scripts()
+    {
+        //wp_deregister_script( 'jquery' );
+        //wp_enqueue_script('jquery', plugin_dir_url( __FILE__ ) . 'js/jquery-1.6.2.js', array( ) );
+    }
+
+    public static function enqueue_styles()
+    {
+        wp_register_style('DeployMintCSS', plugin_dir_url(__FILE__) . 'css/admin.css');
+        wp_enqueue_style('DeployMintCSS');
     }
 
     public static function __callStatic($name, $args)
@@ -197,7 +211,8 @@ class deploymint
         if (!is_user_logged_in()) {
             die("<h2>You are not logged in.</h2>");
         }
-        if (!current_user_can('manage_network')) {
+        if ( (is_multisite() && !current_user_can('manage_network')) 
+            || !is_multisite() && !current_user_can('manage_options')) {
             die("<h2>You don't have permission to access this page.</h2><p>You need the 'manage_network' Super Admin capability to use DeployMint.</p>");
         }
     }
@@ -1028,17 +1043,18 @@ class deploymint
     {
         global $wpdb;
         extract(self::getOptions(), EXTR_OVERWRITE);
-        add_submenu_page("DeployMint", "Manage Projects", "Manage Projects", "manage_network", "DeployMint", 'deploymint::deploymintMenu');
-        add_menu_page("DeployMint", "DeployMint", 'manage_network', 'DeployMint', 'deploymint::deploymintMenu', WP_PLUGIN_URL . '/DeployMint/images/deployMintIcon.png');
+        $capability = is_multisite() ? 'manage_network' : 'manage_options';
+        add_submenu_page("DeployMint", "Manage Projects", "Manage Projects", $capability, "DeployMint", 'deploymint::deploymintMenu');
+        add_menu_page("DeployMint", "DeployMint", $capability, 'DeployMint', 'deploymint::deploymintMenu', WP_PLUGIN_URL . '/DeployMint/images/deployMintIcon.png');
         $projects = $wpdb->get_results($wpdb->prepare("select id, name from dep_projects where deleted=0"), ARRAY_A);
         for ($i = 0; $i < sizeof($projects); $i++) {
-            add_submenu_page("DeployMint", "Proj: " . $projects[$i]['name'], "Proj: " . $projects[$i]['name'], "manage_network", "DeployMintProj" . $projects[$i]['id'], 'deploymint::projectMenu' . $projects[$i]['id']);
+            add_submenu_page("DeployMint", "Proj: " . $projects[$i]['name'], "Proj: " . $projects[$i]['name'], $capability, "DeployMintProj" . $projects[$i]['id'], 'deploymint::projectMenu' . $projects[$i]['id']);
         }
         if (!$backupDisabled) {
-            add_submenu_page("DeployMint", "Emergency Revert", "Emergency Revert", "manage_network", "DeployMintBackout", 'deploymint::undoLog');
+            add_submenu_page("DeployMint", "Emergency Revert", "Emergency Revert", $capability, "DeployMintBackout", 'deploymint::undoLog');
         }
-        add_submenu_page("DeployMint", "Options", "Options", "manage_network", "DeployMintOptions", 'deploymint::myOptions');
-        add_submenu_page("DeployMint", "Help", "Help", "manage_network", "DeployMintHelp", 'deploymint::help');
+        add_submenu_page("DeployMint", "Options", "Options", $capability, "DeployMintOptions", 'deploymint::myOptions');
+        add_submenu_page("DeployMint", "Help", "Help", $capability, "DeployMintHelp", 'deploymint::help');
     }
 
     public static function deploymintMenu()
@@ -1200,11 +1216,6 @@ class deploymint
     public static function msgDataDir()
     {
         deploymint::showMessage("You need to visit the options page for \"DeployMint\" and configure all options including a data directory that is writable by your web server.", true);
-    }
-
-    public static function msgMultisite()
-    {
-        deploymint::showMessage("The DeployMint plugin is designed to be used with WordPress MU. You are running an ordinary WordPress installation and need to convert your blog to WordPress MU to use DeployMint. You can learn how to <a href=\"http://codex.wordpress.org/Create_A_Network\" target=\"_blank\">convert this blog to WordPress MU on this page (opens a new window)</a>.", true);
     }
 
     public static function mexec($cmd, $cwd = './', $env = NULL)
