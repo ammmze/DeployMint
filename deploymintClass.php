@@ -227,7 +227,7 @@ class deploymint
         }
         $res = $wpdb->get_results($wpdb->prepare("select * from dep_projects where id=%d and deleted=0", $projectid), ARRAY_A);
         $proj = $res[0];
-        include 'projectPage.php';
+        include 'views/projectPage.php';
     }
 
     public static function ajax_createProject_callback()
@@ -1063,18 +1063,18 @@ class deploymint
             echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
             return;
         }
-        include 'deploymintHome.php';
+        include 'views/deploymintHome.php';
     }
 
     public static function help()
     {
-        include 'help.php';
+        include 'views/help.php';
     }
 
     public static function myOptions()
     {
         $opt = self::getOptions();
-        include 'myOptions.php';
+        include 'views/myOptions.php';
     }
 
     private static function deleteOldBackupDatabases()
@@ -1194,7 +1194,7 @@ class deploymint
             }
         }
 
-        include 'undoLog.php';
+        include 'views/undoLog.php';
     }
 
     public static function ajaxError($msg)
