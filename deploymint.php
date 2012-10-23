@@ -15,7 +15,18 @@ Author URI: http://markmaunder.com/
 
 
 require('deploymintClass.php');
-register_activation_hook(__FILE__, 'deploymint::installPlugin');
-deploymint::setup();
+require 'DeployMintInterface.php';
+require 'DeployMintAbstract.php';
+if (is_multisite()) {
+    require 'DeployMintMultiSite.php';
+    $plugin = new DeployMintMultiSite();
+} else {
+    require 'DeployMintSingleSite.php';
+    $plugin = new DeployMintSingleSite();
+}
+$plugin->setPdb($wpdb);
+
+register_activation_hook(__FILE__, array($plugin,'install'));
+$plugin->setup();
 
 ?>
