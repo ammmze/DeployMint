@@ -19,14 +19,14 @@ require 'DeployMintInterface.php';
 require 'DeployMintAbstract.php';
 if (is_multisite()) {
     require 'DeployMintMultiSite.php';
-    $plugin = new DeployMintMultiSite();
+    $deployMintPlugin = new DeployMintMultiSite();
 } else {
     require 'DeployMintSingleSite.php';
-    $plugin = new DeployMintSingleSite();
+    $deployMintPlugin = new DeployMintSingleSite();
 }
-$plugin->setPdb($wpdb);
+$deployMintPlugin->setPdb($wpdb);
 
-register_activation_hook(__FILE__, array($plugin,'install'));
-$plugin->setup();
+register_activation_hook(__FILE__, array($deployMintPlugin,'install'));
+$deployMintPlugin->setup();
 
 ?>
