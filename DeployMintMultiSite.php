@@ -2,6 +2,7 @@
 
 class DeployMintMultiSite extends DeployMintAbstract
 {
+
     public function adminMenu()
     {
         extract(self::getOptions(), EXTR_OVERWRITE);

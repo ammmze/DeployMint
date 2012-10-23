@@ -4,6 +4,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 {
 
     const PAGE_INDEX    = 'deploymint';
+    const PAGE_BLOGS    = 'deploymint/blogs';
     const PAGE_PROJECTS = 'deploymint/projects';
     const PAGE_REVERT   = 'deploymint/revert';
     const PAGE_OPTIONS  = 'deploymint/options';
@@ -51,20 +52,21 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
         add_action('init', array($this, 'initHandler'));
         add_action('wp_enqueue_scripts', array($this, 'enqueueScripts'));
-        add_action('wp_enqueue_styles', array($this, 'enqueueStyles'));
         
+        add_action('wp_ajax_deploymint_createProject', array($this, 'actionCreateProject'));
+        add_action('wp_ajax_deploymint_deleteProject', array($this, 'actionRemoveProject'));
+        add_action('wp_ajax_deploymint_reloadProjects', array($this, 'actionReloadProjects'));
+        add_action('wp_ajax_deploymint_addBlogToProject', array($this, 'actionAddBlogToProject'));
+        add_action('wp_ajax_deploymint_removeBlogFromProject', array($this, 'actionRemoveBlogFromProject'));
+
         add_action('wp_ajax_deploymint_deploy', 'deploymint::ajax_deploy_callback');
-        add_action('wp_ajax_deploymint_createProject', 'deploymint::ajax_createProject_callback');
-        add_action('wp_ajax_deploymint_reloadProjects', 'deploymint::ajax_reloadProjects_callback');
         add_action('wp_ajax_deploymint_updateCreateSnapshot', 'deploymint::ajax_updateCreateSnapshot_callback');
         add_action('wp_ajax_deploymint_updateDeploySnapshot', 'deploymint::ajax_updateDeploySnapshot_callback');
         add_action('wp_ajax_deploymint_updateSnapDesc', 'deploymint::ajax_updateSnapDesc_callback');
         add_action('wp_ajax_deploymint_createSnapshot', 'deploymint::ajax_createSnapshot_callback');
         add_action('wp_ajax_deploymint_deploySnapshot', 'deploymint::ajax_deploySnapshot_callback');
         add_action('wp_ajax_deploymint_undoDeploy', 'deploymint::ajax_undoDeploy_callback');
-        add_action('wp_ajax_deploymint_addBlogToProject', 'deploymint::ajax_addBlogToProject_callback');
-        add_action('wp_ajax_deploymint_removeBlogFromProject', 'deploymint::ajax_removeBlogFromProject_callback');
-        add_action('wp_ajax_deploymint_deleteProject', 'deploymint::ajax_deleteProject_callback');
+        
         add_action('wp_ajax_deploymint_deleteBackups', 'deploymint::ajax_deleteBackups_callback');
         add_action('wp_ajax_deploymint_updateOptions', 'deploymint::ajax_updateOptions_callback');
         if (!$this->allOptionsSet()) {
@@ -100,6 +102,15 @@ abstract class DeployMintAbstract implements DeployMintInterface
             project_id int UNSIGNED NOT NULL,
             deleted tinyint UNSIGNED default 0,
             KEY k1(blog_id, project_id)
+        ) default charset=utf8");
+        if (!$success) {
+            die($this->pdb->print_error());
+        }
+        $success = $this->pdb->query("CREATE TABLE IF NOT EXISTS dep_blogs (
+            id int UNSIGNED NOT NULL auto_increment PRIMARY KEY,
+            blog_url varchar(255) NOT NULL,
+            project_id int UNSIGNED NOT NULL,
+            deleted tinyint UNSIGNED default 0
         ) default charset=utf8");
         if (!$success) {
             die($this->pdb->print_error());
@@ -227,12 +238,6 @@ abstract class DeployMintAbstract implements DeployMintInterface
         //wp_enqueue_script('jquery', plugin_dir_url( __FILE__ ) . 'js/jquery-1.6.2.js', array( ) );
     }
 
-    public function enqueueStyles()
-    {
-        wp_register_style('DeployMintCSS', plugin_dir_url(__FILE__) . 'css/admin.css');
-        wp_enqueue_style('DeployMintCSS');
-    }
-
     public function initHandler()
     {
         if (is_admin()) {
@@ -241,6 +246,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
             wp_localize_script('deploymint-js', 'DeployMintVars', array(
                 'ajaxURL' => admin_url('admin-ajax.php')
             ));
+            wp_register_style('DeployMintCSS',  plugins_url('css/admin.css', __FILE__));
+            wp_enqueue_style('DeployMintCSS');
         }
     }
 
@@ -254,10 +261,15 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     public function actionManageProjects()
     {
+        return $this->actionIndex();
+    }
+
+    public function actionManageBlogs()
+    {
         if (!self::allOptionsSet()) {
             return $this->actionOptions();
         }
-        return $this->actionIndex();
+        include 'views/manageBlogs.php';
     }
 
     public function actionManageProject($id)
@@ -355,6 +367,168 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
     }
 
+    public function actionCreateProject()
+    {
+        $this->checkPerms();
+        $name = $_POST['name'];
+        try {
+            if ($this->createProject($name)) {
+                die(json_encode(array('ok' => 1)));
+            }
+        } catch (Exception $e) {
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+        
+    }
+
+    public function actionRemoveProject()
+    {
+        $this->checkPerms();
+        $id = $_POST['id'];
+        try {
+            if ($this->removeProject($id)) {
+                die(json_encode(array('ok' => 1)));
+            }
+        } catch (Exception $e) {
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+    }
+
+    public function actionReloadProjects()
+    {
+        $this->checkPerms();
+        try {
+            $projects = $this->getProjects();
+            for ($i = 0; $i < sizeof($projects); $i++) {
+                $projects[$i]['memberBlogs'] = $this->getProjectBlogs($projects[$i]['id']);
+                $projects[$i]['nonmemberBlogs'] = $this->getBlogsNotInProject($projects[$i]['id']);
+                $projects[$i]['numNonmembers'] = sizeof($projects[$i]['nonmemberBlogs']);
+            }
+            die(json_encode(array(
+                'projects' => $projects
+            )));
+        } catch (Exception $e){
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+        
+    }
+
+    public function actionAddBlogToProject()
+    {
+        $this->checkPerms();
+        try {
+            if ($this->addBlogToProject($_POST['blogID'], $_POST['projectID'])) {
+                die(json_encode(array('ok' => 1)));
+            }
+        } catch (Exception $e){
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+        
+    }
+
+    public function actionRemoveBlogFromProject()
+    {
+        $this->checkPerms();
+        try {
+            if ($this->removeBlogFromProject($_POST['blogID'], $_POST['projectID'])) {
+                die(json_encode(array('ok' => 1)));
+            }
+        } catch (Exception $e){
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+        
+    }
+
+    protected function createProject($name)
+    {
+        $this->checkPerms();
+        $opt = $this->getOptions();
+        extract($opt, EXTR_OVERWRITE);
+        $exists = $this->pdb->get_results($this->pdb->prepare("SELECT name FROM dep_projects WHERE name=%s AND deleted=0", $name), ARRAY_A);
+        if (sizeof($exists) > 0) {
+            throw new Exception('A project with that name already exists');
+        }
+        $dir = $name;
+        $dir = preg_replace('/[^a-zA-Z0-9]+/', '_', $dir);
+        $fulldir = $dir . '-1';
+        $counter = 2;
+        while (is_dir($datadir . $fulldir)) {
+            $fulldir = preg_replace('/\-\d+$/', '', $fulldir);
+            $fulldir .= '-' . $counter;
+            $counter++;
+            if ($counter > 1000) {
+                throw new Exception('Too many directories already exist starting with "'.$dir.'"');
+            }
+        }
+
+        $finaldir = $datadir . $fulldir;
+        if (!@mkdir($finaldir, 0755)) {
+            throw new Exception('Could not create directory ' . $finaldir);
+        }
+        $git1 = self::mexec("$git init ; $git add . ", $finaldir);
+        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir) VALUES (unix_timestamp(), %s, %s)", $_POST['name'], $fulldir));
+        return true;
+    }
+
+    protected function removeProject($id)
+    {
+        $this->pdb->query($this->pdb->prepare("UPDATE dep_members SET deleted=1 WHERE project_id=%d", $_POST['blogID'], $_POST['projectID']));
+        $this->pdb->query($this->pdb->prepare("UPDATE dep_projects SET deleted=1 WHERE id=%d", $_POST['projectID']));
+        return true;
+    }
+
+    protected function getProjects()
+    {
+        return $this->pdb->get_results($this->pdb->prepare("SELECT id, name FROM dep_projects WHERE deleted=0"), ARRAY_A);
+    }
+
+    protected function getProjectBlogs($project)
+    {
+        $blogsTable = $this->pdb->base_prefix . 'blogs';
+        return $this->pdb->get_results($this->pdb->prepare("SELECT $blogsTable.blog_id AS blog_id, $blogsTable.domain AS domain, $blogsTable.path AS path FROM dep_members, $blogsTable WHERE dep_members.deleted=0 AND dep_members.project_id=%d AND dep_members.blog_id = $blogsTable.blog_id", $project), ARRAY_A);
+    }
+
+    protected function getBlogsNotInProject($project)
+    {
+        $availableBlogs = array();
+        $allBlogs = $this->getBlogs();
+        $projectBlogs = $this->getProjectBlogs($project);
+        
+        if (sizeof($projectBlogs) == 0) {
+            return $allBlogs;
+        }
+
+        $pBlogIds = array_map(function($e){
+            return $e['blog_id'];
+        }, $projectBlogs);
+        
+        foreach($allBlogs as $b) {
+            if (!in_array($b['blog_id'], $pBlogIds)) {
+                $availableBlogs[] = $b;
+            }
+        }
+        return $availableBlogs;
+    }
+
+    protected function getBlogs()
+    {
+        $blogsTable = $this->pdb->base_prefix . 'blogs';
+        return $this->pdb->get_results($this->pdb->prepare("SELECT blog_id, domain, path FROM $blogsTable ORDER BY domain ASC"), ARRAY_A);
+    }
+
+    protected function removeBlogFromProject($blogId, $projectId)
+    {
+        $this->pdb->query($this->pdb->prepare("UPDATE dep_members SET deleted=1 WHERE blog_id=%d and project_id=%d", $blogId, $projectId));
+        return true;
+    }
+
+    protected function addBlogToProject($blogId, $projectId)
+    {
+        // TODO: Check that blog exists?
+        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_members (blog_id, project_id) VALUES (%d, %d)", $blogId, $projectId));
+        return true;
+    }
+
 
 
 
@@ -370,38 +544,6 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 mysql_query('DROP TABLE IF EXISTS ' . $row[0], $connection);
             }
         }
-    }
-
-    public static function ajax_createProject_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $opt = self::getOptions();
-        extract($opt, EXTR_OVERWRITE);
-        $exists = $wpdb->get_results($wpdb->prepare("select name from dep_projects where name=%s and deleted=0", $_POST['name']), ARRAY_A);
-        if (sizeof($exists) > 0) {
-            die(json_encode(array('err' => "A project with that name already exists.")));
-        }
-        $dir = $_POST['name'];
-        $dir = preg_replace('/[^a-zA-Z0-9]+/', '_', $dir);
-        $fulldir = $dir . '-1';
-        $counter = 2;
-        while (is_dir($datadir . $fulldir)) {
-            $fulldir = preg_replace('/\-\d+$/', '', $fulldir);
-            $fulldir .= '-' . $counter;
-            $counter++;
-            if ($counter > 1000) {
-                die(json_encode(array('err' => "Too many directories already exist starting with \"$dir\"")));
-            }
-        }
-
-        $finaldir = $datadir . $fulldir;
-        if (!@mkdir($finaldir, 0755)) {
-            die(json_encode(array('err' => "Could not create directory $finaldir")));
-        }
-        $git1 = self::mexec("$git init ; $git add . ", $finaldir);
-        $wpdb->query($wpdb->prepare("insert into dep_projects (ctime, name, dir) values (unix_timestamp(), %s, %s)", $_POST['name'], $fulldir));
-        die(json_encode(array('ok' => 1)));
     }
 
     public static function ajax_updateOptions_callback()
@@ -498,35 +640,6 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 self::ajaxError("Could not drop database " . $toDel[$i] . ". Error: " . mysql_error($dbh));
             }
         }
-        die(json_encode(array('ok' => 1)));
-    }
-
-    public static function ajax_deleteProject_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $wpdb->query($wpdb->prepare("update dep_members set deleted=1 where project_id=%d", $_POST['blogID'], $_POST['projectID']));
-        $wpdb->query($wpdb->prepare("update dep_projects set deleted=1 where id=%d", $_POST['projectID']));
-        die(json_encode(array('ok' => 1)));
-    }
-
-    public static function ajax_removeBlogFromProject_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $wpdb->query($wpdb->prepare("update dep_members set deleted=1 where blog_id=%d and project_id=%d", $_POST['blogID'], $_POST['projectID']));
-        die(json_encode(array('ok' => 1)));
-    }
-
-    public static function ajax_addBlogToProject_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $det = get_blog_details($_POST['blogID']);
-        if (!$det) {
-            die(json_encode(array('err' => "Please select a valid blog to add.")));
-        }
-        $wpdb->query($wpdb->prepare("insert into dep_members (blog_id, project_id) values (%d, %d)", $_POST['blogID'], $_POST['projectID']));
         die(json_encode(array('ok' => 1)));
     }
 
@@ -1095,33 +1208,6 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $blogsTable = $wpdb->base_prefix . 'blogs';
         $blogs = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain, $blogsTable.path as path from dep_members, $blogsTable where dep_members.blog_id = $blogsTable.blog_id and dep_members.project_id = %d and dep_members.deleted=0", $pid), ARRAY_A);
         die(json_encode(array('blogs' => $blogs)));
-    }
-
-    public static function ajax_reloadProjects_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $blogsTable = $wpdb->base_prefix . 'blogs';
-        $projects = $wpdb->get_results($wpdb->prepare("select id, name from dep_projects where deleted=0"), ARRAY_A);
-        $allBlogs = $wpdb->get_results($wpdb->prepare("select blog_id, domain, path from $blogsTable order by domain asc"), ARRAY_A);
-        for ($i = 0; $i < sizeof($projects); $i++) {
-            $mem = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain, $blogsTable.path as path from dep_members, $blogsTable where dep_members.deleted=0 and dep_members.project_id=%d and dep_members.blog_id = $blogsTable.blog_id", $projects[$i]['id']), ARRAY_A);
-            $projects[$i]['memberBlogs'] = $mem;
-            $memids = array();
-            $notSQL = "";
-            if (sizeof($mem) > 0) {
-                for ($j = 0; $j < sizeof($mem); $j++) {
-                    array_push($memids, $mem[$j]['blog_id']);
-                }
-                $notSQL = "where blog_id NOT IN (" . implode(",", $memids) . ")";
-            }
-            $nonmem = $wpdb->get_results($wpdb->prepare("select blog_id, domain, path from $blogsTable $notSQL order by domain asc"), ARRAY_A);
-            $projects[$i]['nonmemberBlogs'] = $nonmem;
-            $projects[$i]['numNonmembers'] = sizeof($nonmem);
-        }
-        die(json_encode(array(
-                    'projects' => $projects
-                )));
     }
 
     public static function ajax_deploy_callback()

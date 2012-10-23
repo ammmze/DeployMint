@@ -178,6 +178,63 @@ window['deploymint'] = {
 
 
     },
+    addBlog: function(url){
+        parent = this;
+        jQuery.ajax({
+            type: "POST",
+            url: DeployMintVars.ajaxURL,
+            dataType: "json",
+            data: {
+                action: "deploymint_addBlog",
+                url: url
+                },
+            success: function(resp){
+                parent.reloadBlogs();
+            },
+            error: function(){}
+            });
+
+
+    },
+    removeBlog: function(id){
+        parent = this;
+        jQuery.ajax({
+            type: "POST",
+            url: DeployMintVars.ajaxURL,
+            dataType: "json",
+            data: {
+                action: "deploymint_removeBlog",
+                id: id
+                },
+            success: function(resp){
+                parent.reloadBlogs();
+            },
+            error: function(){}
+            });
+
+
+    },
+    reloadBlogs: function(){
+        jQuery.ajax({
+            type: "POST",
+            url: DeployMintVars.ajaxURL,
+            dataType: "json",
+            data: {
+                action: "deploymint_reloadBlogs"
+                },
+            success: function(resp){
+                if(resp.err){
+                    alert(resp.err);
+                    return;
+                }
+                jQuery('#sdBlogs').empty();
+                jQuery('#sdBlogTmpl').tmpl(resp).appendTo('#sdBlogs');
+            },
+            error: function(){}
+            });
+
+
+    },
     createSnapshot: function(projectid, blogid, name, desc){
         var self = this;
         jQuery.ajax({

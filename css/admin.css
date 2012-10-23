@@ -50,3 +50,15 @@ tr.note th {
     color: #555;
     padding-top: 0;
 }
+
+table.deploymint-blogs {
+    border: 1px solid #EFEFEF;
+}
+table.deploymint-blogs th{
+    text-align: left;
+    border-bottom: 1px solid #EFEFEF;
+}
+table.deploymint-blogs th,
+table.deploymint-blogs td{
+    padding: 3px 5px;
+}

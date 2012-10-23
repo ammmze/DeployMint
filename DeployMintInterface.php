@@ -14,9 +14,9 @@ interface DeployMintInterface
 
     public function enqueueScripts();
 
-    public function enqueueStyles();
-
     public function actionIndex();
+
+    public function actionManageBlogs();
 
     public function actionManageProjects();
 
