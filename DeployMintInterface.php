@@ -15,4 +15,14 @@ interface DeployMintInterface
     public function enqueueScripts();
 
     public function enqueueStyles();
+
+    public function actionIndex();
+
+    public function actionManageProjects();
+
+    public function actionRevert();
+
+    public function actionOptions();
+
+    public function actionHelp();
 }

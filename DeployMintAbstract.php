@@ -3,6 +3,12 @@
 abstract class DeployMintAbstract implements DeployMintInterface
 {
 
+    const PAGE_INDEX    = 'deploymint';
+    const PAGE_PROJECTS = 'deploymint/projects';
+    const PAGE_REVERT   = 'deploymint/revert';
+    const PAGE_OPTIONS  = 'deploymint/options';
+    const PAGE_HELP     = 'deploymint/help';
+
     protected $wpTables = array('commentmeta', 'comments', 'links', 'options', 'postmeta', 'posts', 'term_relationships', 'term_taxonomy', 'terms');
     protected $pdb;
     protected $defaultOptions = array(
@@ -161,6 +167,17 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return $this->defaultOptions;
     }
 
+    protected function checkPerms()
+    {
+        if (!is_user_logged_in()) {
+            die("<h2>You are not logged in.</h2>");
+        }
+        if ( (is_multisite() && !current_user_can('manage_network')) 
+            || !is_multisite() && !current_user_can('manage_options')) {
+            die("<h2>You don't have permission to access this page.</h2><p>You need the 'manage_network' Super Admin capability to use DeployMint.</p>");
+        }
+    }
+
     protected function ajaxError($msg)
     {
         die(json_encode(array('err' => $msg)));
@@ -215,6 +232,113 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
     }
 
+    public function actionIndex()
+    {
+        if (!self::allOptionsSet()) {
+            echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
+            return;
+        }
+        include 'views/index.php';
+    }
+
+    public function actionManageProjects()
+    {
+        return $this->actionIndex();
+    }
+
+    public function actionManageProject($id)
+    {
+        $this->checkPerms();
+        if (!$this->allOptionsSet()) {
+            echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
+            return;
+        }
+        $res = $this->pdb->get_results($this->pdb->prepare("SELECT * FROM dep_projects WHERE id=%d AND deleted=0", $id), ARRAY_A);
+        $proj = $res[0];
+        include 'views/manageProject.php';
+    }
+
+    public function actionRevert()
+    {
+        $this->checkPerms();
+        if (!$this->allOptionsSet()) {
+            echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
+            return;
+        }
+        extract($this->getOptions(), EXTR_OVERWRITE);
+        $dbuser = DB_USER;
+        $dbpass = DB_PASSWORD;
+        $dbhost = DB_HOST;
+        $dbname = DB_NAME;
+        $dbh = mysql_connect($dbhost, $dbuser, $dbpass, true);
+        mysql_select_db($dbname, $dbh);
+        $res1 = mysql_query("SHOW DATABASES", $dbh);
+        if (mysql_error($dbh)) {
+            $this->ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        
+        function readBackupData($dbname, $dbh)
+        {
+            $res2 = mysql_query("SELECT * FROM $dbname.dep_backupdata", $dbh);
+            if (mysql_error($dbh)) {
+                $this->ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            $dbData = array();
+            while ($row2 = mysql_fetch_array($res2, MYSQL_ASSOC)) {
+                $dbData[$row2['name']] = $row2['val'];
+            }
+            $dbData['dbname'] = $dbname;
+            $dbData['deployTimeH'] = date('l jS \of F Y h:i:s A', sprintf('%d', $dbData['deployTime']));
+            return $dbData;
+        }
+
+        $dbs = array();
+        if ($backupDatabase == '' || ($numBackups != 1)) {
+            while ($row1 = mysql_fetch_array($res1, MYSQL_NUM)) {
+                $dbPrefix = ($backupDatabase == '') ? 'depbak' : $backupDatabase;
+                if (preg_match('/^' . $dbPrefix . '__/', $row1[0])) {
+                    array_push($dbs, readBackupData($row1[0], $dbh));
+                }
+            }
+
+            function deployTimeSort($b, $a)
+            {
+                if ($a['deployTime'] == $b['deployTime']) {
+                    return 0;
+                } return ($a['deployTime'] < $b['deployTime']) ? -1 : 1;
+            }
+
+            usort($dbs, 'deployTimeSort');
+        } else {
+            if (!$backupDisabled) {
+                array_push($dbs, readBackupData($backupDatabase, $dbh));
+            }
+        }
+
+        include 'views/revert.php';
+    }
+
+    public function actionOptions()
+    {
+        $opt = $this->getOptions();
+        include 'views/options.php';
+    }
+
+    public function actionHelp()
+    {
+        include 'views/help.php';
+    }
+
+    public function __call($name, $args)
+    {
+        $matches = array();
+        if (preg_match('/^actionManageProject_(\d+)$/', $name, &$matches)) {
+            $this->actionManageProject($matches[1]);
+        } else {
+            die("Method $name doesn't exist!");
+        }
+    }
+
 
 
 
@@ -230,40 +354,6 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 mysql_query('DROP TABLE IF EXISTS ' . $row[0], $connection);
             }
         }
-    }
-
-    public static function __callStatic($name, $args)
-    {
-        $matches = array();
-        if (preg_match('/^projectMenu(\d+)$/', $name, &$matches)) {
-            self::projectMenu($matches[1]);
-        } else {
-            die("Method $name doesn't exist!");
-        }
-    }
-
-    private static function checkPerms()
-    {
-        if (!is_user_logged_in()) {
-            die("<h2>You are not logged in.</h2>");
-        }
-        if ( (is_multisite() && !current_user_can('manage_network')) 
-            || !is_multisite() && !current_user_can('manage_options')) {
-            die("<h2>You don't have permission to access this page.</h2><p>You need the 'manage_network' Super Admin capability to use DeployMint.</p>");
-        }
-    }
-
-    public static function projectMenu($projectid)
-    {
-        self::checkPerms();
-        global $wpdb;
-        if (!self::allOptionsSet()) {
-            echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
-            return;
-        }
-        $res = $wpdb->get_results($wpdb->prepare("select * from dep_projects where id=%d and deleted=0", $projectid), ARRAY_A);
-        $proj = $res[0];
-        include 'views/projectPage.php';
     }
 
     public static function ajax_createProject_callback()
@@ -1064,26 +1154,6 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 )));
     }
 
-    public static function deploymintMenu()
-    {
-        if (!self::allOptionsSet()) {
-            echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
-            return;
-        }
-        include 'views/deploymintHome.php';
-    }
-
-    public static function help()
-    {
-        include 'views/help.php';
-    }
-
-    public static function myOptions()
-    {
-        $opt = self::getOptions();
-        include 'views/myOptions.php';
-    }
-
     private static function deleteOldBackupDatabases()
     {
         self::checkPerms();
@@ -1144,66 +1214,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
     }
 
-    public static function undoLog()
-    {
-        self::checkPerms();
-        if (!self::allOptionsSet()) {
-            echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
-            return;
-        }
-        extract(self::getOptions(), EXTR_OVERWRITE);
-        $dbuser = DB_USER;
-        $dbpass = DB_PASSWORD;
-        $dbhost = DB_HOST;
-        $dbname = DB_NAME;
-        $dbh = mysql_connect($dbhost, $dbuser, $dbpass, true);
-        mysql_select_db($dbname, $dbh);
-        $res1 = mysql_query("show databases", $dbh);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        
-        function readBackupData($dbname, $dbh)
-        {
-            $res2 = mysql_query("select * from $dbname.dep_backupdata", $dbh);
-            if (mysql_error($dbh)) {
-                deploymint::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            $dbData = array();
-            while ($row2 = mysql_fetch_array($res2, MYSQL_ASSOC)) {
-                $dbData[$row2['name']] = $row2['val'];
-            }
-            $dbData['dbname'] = $dbname;
-            $dbData['deployTimeH'] = date('l jS \of F Y h:i:s A', sprintf('%d', $dbData['deployTime']));
-            return $dbData;
-        }
-
-        $dbs = array();
-        if ($backupDatabase == '' || ($numBackups != 1)) {
-            while ($row1 = mysql_fetch_array($res1, MYSQL_NUM)) {
-                $dbPrefix = ($backupDatabase == '') ? 'depbak' : $backupDatabase;
-                if (preg_match('/^' . $dbPrefix . '__/', $row1[0])) {
-                    array_push($dbs, readBackupData($row1[0], $dbh));
-                }
-            }
-
-            function deployTimeSort($b, $a)
-            {
-                if ($a['deployTime'] == $b['deployTime']) {
-                    return 0;
-                } return ($a['deployTime'] < $b['deployTime']) ? -1 : 1;
-            }
-
-            usort($dbs, 'deployTimeSort');
-        } else {
-            if (!$backupDisabled) {
-                array_push($dbs, readBackupData($backupDatabase, $dbh));
-            }
-        }
-
-        include 'views/undoLog.php';
-    }
-
+    
     private static function showMessage($message, $errormsg = false)
     {
         if ($errormsg) {
