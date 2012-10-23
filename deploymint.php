@@ -25,6 +25,9 @@ if (is_multisite()) {
     $deployMintPlugin = new DeployMintSingleSite();
 }
 
+register_activation_hook(__FILE__, array($deployMintPlugin,'install'));
+register_deactivation_hook(__FILE__, array($deployMintPlugin,'uninstall'));
+        
 $deployMintPlugin->setup();
 
 ?>

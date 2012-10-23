@@ -37,23 +37,23 @@
     </div>
     <table class="form-table">
     <tr>
-        <th>Path to git:</th>
+        <th>Path to git:*</th>
         <td><input type="text" id="sdPathToGit" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['git']) ?>" /></td>
     </tr>
     <tr>
-        <th>Path to mysql:</th>
+        <th>Path to mysql:*</th>
         <td><input type="text" id="sdPathToMysql" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['mysql']) ?>" /></td>
     </tr>
     <tr>
-        <th>Path to mysqldump:</th>
+        <th>Path to mysqldump:*</th>
         <td><input type="text" id="sdPathToMysqldump" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['mysqldump']) ?>" /></td>
     </tr>
     <tr>
-        <th>Path to rsync:</th>
+        <th>Path to rsync:*</th>
         <td><input type="text" id="sdPathToRsync" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['rsync']) ?>" /></td>
     </tr>    
     <tr>
-        <th style="white-space: nowrap;">Path to a data directory for DeployMint:</th>
+        <th style="white-space: nowrap;">Path to a data directory for DeployMint:*</th>
         <td><input type="text" id="sdPathToDataDir" size="40" maxlength="255" value="<?php echo htmlspecialchars($opt['datadir']) ?>" /></td>
     </tr>
     <tr>

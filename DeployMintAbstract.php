@@ -29,14 +29,12 @@ abstract class DeployMintAbstract implements DeployMintInterface
         global $wpdb;
         $this->pdb = $wpdb;
 
-        register_activation_hook(__FILE__, array($this,'install'));
-        register_deactivation_hook(__FILE__, array($this,'uninstall'));
     }
 
     public function install()
     {
         $this->createSchema();
-        $this->detectOptions();
+        $this->updateOptions($this->detectOptions());
     }
 
     public function uninstall()
@@ -114,7 +112,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         foreach (array('git', 'mysql', 'mysqldump', 'rsync') as $n) {
             $options[$n] = $options[$n] ? $options[$n] : trim($this->mexec("which $n"));
         }
-        $this->updateOptions($options);
+        return $options;
     }
 
     protected function updateOptions($o)
@@ -249,19 +247,24 @@ abstract class DeployMintAbstract implements DeployMintInterface
     public function actionIndex()
     {
         if (!self::allOptionsSet()) {
-            echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
-            return;
+            return $this->actionOptions();
         }
         include 'views/index.php';
     }
 
     public function actionManageProjects()
     {
+        if (!self::allOptionsSet()) {
+            return $this->actionOptions();
+        }
         return $this->actionIndex();
     }
 
     public function actionManageProject($id)
     {
+        if (!self::allOptionsSet()) {
+            return $this->actionOptions();
+        }
         $this->checkPerms();
         if (!$this->allOptionsSet()) {
             echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
@@ -275,9 +278,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
     public function actionRevert()
     {
         $this->checkPerms();
-        if (!$this->allOptionsSet()) {
-            echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
-            return;
+        if (!self::allOptionsSet()) {
+            return $this->actionOptions();
         }
         extract($this->getOptions(), EXTR_OVERWRITE);
         $dbuser = DB_USER;
