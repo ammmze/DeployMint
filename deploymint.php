@@ -24,9 +24,7 @@ if (is_multisite()) {
     require 'DeployMintSingleSite.php';
     $deployMintPlugin = new DeployMintSingleSite();
 }
-$deployMintPlugin->setPdb($wpdb);
 
-register_activation_hook(__FILE__, array($deployMintPlugin,'install'));
 $deployMintPlugin->setup();
 
 ?>

@@ -24,10 +24,24 @@ abstract class DeployMintAbstract implements DeployMintInterface
         'backupDatabase'    => '',
     );
 
+    public function __construct()
+    {
+        global $wpdb;
+        $this->pdb = $wpdb;
+
+        register_activation_hook(__FILE__, array($this,'install'));
+        register_deactivation_hook(__FILE__, array($this,'uninstall'));
+    }
+
     public function install()
     {
         $this->createSchema();
         $this->detectOptions();
+    }
+
+    public function uninstall()
+    {
+        
     }
 
     public function setup()
@@ -112,7 +126,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function setOption($name, $val)
     {
-        $this->pdb->query($wpdb->prepare("INSERT INTO dep_options (name, val) VALUES (%s, %s) ON DUPLICATE KEY UPDATE val=%s", $name, $val, $val));
+        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_options (name, val) VALUES (%s, %s) ON DUPLICATE KEY UPDATE val=%s", $name, $val, $val));
     }
 
     protected function getOptions($createTemporaryDatabase = false, $createBackupDatabase = false)
