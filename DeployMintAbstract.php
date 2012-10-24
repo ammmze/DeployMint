@@ -104,7 +104,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             id int UNSIGNED NOT NULL auto_increment PRIMARY KEY,
             blog_url varchar(255) NOT NULL,
             blog_name varchar(255) NOT NULL,
-            blog_path varchar(255) NOT NULL,
+            ignore_cert tinyint UNSIGNED default 0,
             deleted tinyint UNSIGNED default 0
         ) default charset=utf8");
         if (!$success) {
@@ -493,6 +493,11 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return $this->pdb->get_row($this->pdb->prepare("SELECT * FROM dep_projects WHERE id=%d AND deleted=0", array($id)), ARRAY_A);
     }
 
+    protected function getProjectByName($name)
+    {
+        return $this->pdb->get_row($this->pdb->prepare("SELECT * FROM dep_projects WHERE name=%s AND deleted=0", array($name)), ARRAY_A);
+    }
+
     protected function getProjects()
     {
         return $this->pdb->get_results($this->pdb->prepare("SELECT * FROM dep_projects WHERE deleted=0"), ARRAY_A);
@@ -502,6 +507,26 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         $blogsTable = $this->pdb->base_prefix . 'blogs';
         return $this->pdb->get_results($this->pdb->prepare("SELECT $blogsTable.blog_id AS blog_id, $blogsTable.domain AS domain, $blogsTable.path AS path FROM dep_members, $blogsTable WHERE dep_members.deleted=0 AND dep_members.project_id=%d AND dep_members.blog_id = $blogsTable.blog_id", $project), ARRAY_A);
+    }
+
+    protected function getBlogsIds()
+    {
+        $blogs = $this->getBlogs();
+        $ids = array();
+        foreach($blogs as $b) {
+            $ids[] = $b['blog_id'];
+        }
+        return $ids;
+    }
+
+    protected function getProjectBlogsIds($projectId)
+    {
+        $blogs = $this->getProjectBlogs($projectId);
+        $ids = array();
+        foreach($blogs as $b) {
+            $ids[] = $b['blog_id'];
+        }
+        return $ids;
     }
 
     protected function getBlogsNotInProject($project)
@@ -546,9 +571,16 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function addBlogToProject($blogId, $projectId)
     {
-        // TODO: Check that blog exists?
-        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_members (blog_id, project_id) VALUES (%d, %d)", $blogId, $projectId));
+        if (!$this->projectHasBlog($blogId, $projectId)) {
+            $this->pdb->query($this->pdb->prepare("INSERT INTO dep_members (blog_id, project_id) VALUES (%d, %d)", $blogId, $projectId));
+        }
         return true;
+    }
+
+    protected function projectHasBlog($blogId, $projectId)
+    {
+        $result = $this->pdb->get_results($this->pdb->prepare("SELECT project_id FROM dep_members WHERE blog_id=%d AND project_id=%d AND deleted=0", array($blogId, $projectId)), ARRAY_A);
+        return sizeof($result) > 0;
     }
 
     public function actionCreateSnapshot()

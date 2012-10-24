@@ -3,6 +3,8 @@
 class DeployMintSingleSite extends DeployMintAbstract
 {
 
+    protected $isXmlrpcRequest = false;
+
     public function setup()
     {
         parent::setup();
@@ -32,7 +34,7 @@ class DeployMintSingleSite extends DeployMintAbstract
             add_submenu_page(self::PAGE_INDEX, "Proj: " . $projects[$i]['name'], "Proj: " . $projects[$i]['name'], 'manage_options', self::PAGE_PROJECTS . '/' . $projects[$i]['id'], array($this, 'actionManageProject_' . $projects[$i]['id']));
         }
         if (!$backupDisabled) {
-            add_submenu_page(self::PAGE_INDEX, "Emergency Revert", "Emergency Revert", 'manage_options', self::PAGE_REVERT, array($this, 'actionRevert'));
+            //add_submenu_page(self::PAGE_INDEX, "Emergency Revert", "Emergency Revert", 'manage_options', self::PAGE_REVERT, array($this, 'actionRevert'));
         }
         add_submenu_page(self::PAGE_INDEX, "Options", "Options", 'manage_options', self::PAGE_OPTIONS, array($this, 'actionOptions'));
         add_submenu_page(self::PAGE_INDEX, "Help", "Help", 'manage_options', self::PAGE_HELP, array($this, 'actionHelp'));
@@ -42,7 +44,7 @@ class DeployMintSingleSite extends DeployMintAbstract
     {
         $this->checkPerms();
         try {
-            $this->addBlog($_POST['url']);
+            $this->addBlog($_POST['url'], $_POST['name'], $_POST['ignoreCert']);
             die(json_encode(array(
                 'ok' => 1
             )));
@@ -84,6 +86,7 @@ class DeployMintSingleSite extends DeployMintAbstract
     {
         $methods['deploymint.createSnapshot'] = array($this, 'xmlrpcCreateSnapshot');
         $methods['deploymint.deploySnapshot'] = array($this, 'xmlrpcDeploySnapshot');
+        $methods['deploymint.addUpdateProject'] = array($this, 'xmlrpcAddUpdateProject');
         return $methods;
     }
 
@@ -104,6 +107,7 @@ class DeployMintSingleSite extends DeployMintAbstract
 
     public function xmlrpcCreateSnapshot($args)
     {
+        $this->isXmlrpcRequest = true;
         $data = $args[2];
 
         try {
@@ -125,6 +129,7 @@ class DeployMintSingleSite extends DeployMintAbstract
 
     public function xmlrpcDeploySnapshot($args)
     {
+        $this->isXmlrpcRequest = true;
         $data = $args[2];
 
         try {
@@ -144,9 +149,65 @@ class DeployMintSingleSite extends DeployMintAbstract
         return array("success"=>true);
     }
 
-    protected function addBlog($url)
+    public function xmlrpcAddUpdateProject($args)
     {
-        $this->pdb->insert('dep_blogs', array('blog_url'=>$url));
+        $this->isXmlrpcRequest = true;
+        $data = $args[2];
+
+        try {
+            $auth = $this->xmlrpcAuth($args);
+            if ($auth === true) {
+                //throw new Exception(print_r($data,true));
+                $this->doAddUpdateProject($data['project'], $data['blogs']);
+            } else {
+                throw new Exception(print_r($auth,true));
+            }
+        } catch (Exception $e) {
+            return array(
+                "success"=>false,
+                "error"=>$e->getMessage()
+            );
+        }
+        
+        return array("success"=>true);
+    }
+
+    protected function doAddUpdateProject($project, $blogs)
+    {
+        // Check if project exists
+        if (!$this->projectExists($project['name'])) {
+            // Create project
+            $this->createProject($project['name']);
+        }
+
+        $myProject = $this->getProjectByName($project['name']);
+
+        $blogsToKeep = array();
+        foreach($blogs as $b) {
+            // Add the blog, if it already exists, it just updates the record
+            $this->addBlog($b['blog_url'], $b['blog_name'], $b['ignore_cert']);
+            $currentBlog = $this->getBlogByUrl($b['blog_url']);
+
+            // Add blog to project
+            $this->addBlogToProject($currentBlog['id'], $myProject['id']);
+
+            $blogsToKeep[] = $currentBlog['id'];
+        }
+
+        // Remove other blogs
+        $blogsToRemove = array_diff($this->getBlogsIds(), $blogsToKeep);
+        foreach($blogsToRemove as $bid) {
+            $this->removeBlogFromProject($bid, $myProject['id']);
+        }
+    }
+
+    protected function addBlog($url, $name, $ignoreCert)
+    {
+        if (!$this->blogExistsByUrl($url)){
+            $this->pdb->insert('dep_blogs', array('blog_url'=>$url, 'blog_name'=>$name, 'ignore_cert'=>$ignoreCert), array('%s','%s','%d'));
+        } else {
+            $this->pdb->update('dep_blogs', array('blog_url'=>$url, 'blog_name'=>$name, 'ignore_cert'=>$ignoreCert), array('blog_url'=>$url,'deleted'=>0), array('%s','%s','%d'));
+        }
     }
 
     protected function removeBlog($id)
@@ -155,9 +216,20 @@ class DeployMintSingleSite extends DeployMintAbstract
         $this->pdb->update('dep_members', array('deleted'=>1), array('blog_id'=>$id), array('%d'), array('%d'));
     }
 
+    protected function blogExistsByUrl($url)
+    {
+        $result = $this->pdb->get_results($this->pdb->prepare("SELECT id FROM dep_blogs WHERE blog_url=%s AND deleted=0", $url), ARRAY_A);
+        return sizeof($result) > 0;
+    }
+
     protected function getBlog($id)
     {
         return $this->pdb->get_row($this->pdb->prepare("SELECT *, blog_url AS domain, id AS blog_id FROM dep_blogs WHERE id = %d ORDER BY domain ASC", array($id)), ARRAY_A);
+    }
+
+    protected function getBlogByUrl($url)
+    {
+        return $this->pdb->get_row($this->pdb->prepare("SELECT *, blog_url AS domain, id AS blog_id FROM dep_blogs WHERE blog_url = %s AND deleted=0 ORDER BY domain ASC", array($url)), ARRAY_A);
     }
 
     protected function getBlogs()
@@ -165,14 +237,73 @@ class DeployMintSingleSite extends DeployMintAbstract
         return $this->pdb->get_results($this->pdb->prepare("SELECT *, blog_url AS domain, id AS blog_id FROM dep_blogs WHERE deleted=0 ORDER BY blog_url ASC"), ARRAY_A);
     }
 
-    protected function getProjectBlogs($project)
+    protected function getProjectBlogs($projectId)
     {
-        return $this->pdb->get_results($this->pdb->prepare("SELECT dep_blogs.id AS blog_id, dep_blogs.blog_url AS domain FROM dep_members, dep_blogs WHERE dep_members.deleted=0 AND dep_members.project_id=%d AND dep_members.blog_id = dep_blogs.id", $project), ARRAY_A);
+        return $this->pdb->get_results($this->pdb->prepare("SELECT *, dep_blogs.id AS blog_id, dep_blogs.blog_url AS domain FROM dep_members, dep_blogs WHERE dep_members.deleted=0 AND dep_blogs.deleted=0 AND dep_members.project_id=%d AND dep_members.blog_id = dep_blogs.id", $projectId), ARRAY_A);
+    }
+
+    protected function removeBlogFromProject($blogId, $projectId)
+    {
+        // Get blog id's, prior to removing it, so that we can notify the removed blog, itself from the project
+        $blogs = $this->getProjectBlogsIds($projectId);
+        
+        // Remove the blog from the project
+        parent::removeBlogFromProject($blogId, $projectId);
+
+        // Notify blogs that the project has changed
+        $this->updateBlogsWithProject($blogs, $projectId);
+        return true;
+    }
+
+    protected function addBlogToProject($blogId, $projectId)
+    {
+        // Add blog to the project
+        parent::addBlogToProject($blogId, $projectId);
+
+        // Get blog id's
+        $blogs = $this->getProjectBlogsIds($projectId);
+
+        // Notify blogs that the project has changed
+        $this->updateBlogsWithProject($blogs, $projectId);
+        return true;
+    }
+
+    protected function updateBlogsWithProject($blogIds, $projectId)
+    {
+        // If 
+        if ($this->isXmlrpcRequest){
+            return;
+        }
+        $data = array(
+            'project'   => $this->getProject($projectId),
+            'blogs'     => $this->getProjectBlogs($projectId),
+        );
+        //$data = array('projectData'=>json_encode($data));
+
+        foreach($blogIds as $id) {
+            
+            try {
+                $blog = $this->getBlog($id);
+                if ($blog['ignore_cert']==1){
+                    add_filter( 'https_local_ssl_verify', '__return_false' );
+                } else {
+                    remove_filter( 'https_local_ssl_verify', '__return_false' );
+                }
+                $this->doXmlrpcRequest($data, 'deploymint.addUpdateProject', $blog['blog_url'] . '/xmlrpc.php');
+            } catch (Exception $e) {
+                echo $e->getMessage();
+            }
+            
+        }
+
     }
 
     protected function createSnapshot($projectId, $blogId, $name, $desc)
     {
         $blog = $this->getBlog($blogId);
+        if ($blog['ignore_cert']==1){
+            add_filter( 'https_local_ssl_verify', '__return_false' );
+        }
         $valid = parent::createSnapshot($projectId, $blogId, $name, $desc);
         if ($valid) {
             $data = array(
@@ -196,6 +327,9 @@ class DeployMintSingleSite extends DeployMintAbstract
     protected function deploySnapshot($snapshot, $blogId, $projectId)
     {
         $blog = $this->getBlog($blogId);
+        if ($blog['ignore_cert']==1){
+            add_filter( 'https_local_ssl_verify', '__return_false' );
+        }
         $valid = parent::deploySnapshot($snapshot, $blogId, $projectId);
         if ($valid) {
             $data = array(
@@ -226,7 +360,7 @@ class DeployMintSingleSite extends DeployMintAbstract
         // TODO: Real request URL
         $result = wp_remote_post($url, array(
             'body'      => $params,
-            'sslverify' => false,
+            'sslverify' => apply_filters('https_local_ssl_verify', true),
         ));
         if (is_wp_error($result)){
             throw new Exception($result->get_error_message());

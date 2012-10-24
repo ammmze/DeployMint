@@ -178,7 +178,7 @@ window['deploymint'] = {
 
 
     },
-    addBlog: function(url){
+    addBlog: function(url, name, ignoreCert){
         parent = this;
         jQuery.ajax({
             type: "POST",
@@ -186,7 +186,9 @@ window['deploymint'] = {
             dataType: "json",
             data: {
                 action: "deploymint_addBlog",
-                url: url
+                url: url,
+                name: name,
+                ignoreCert: ignoreCert ? 1 : 0
                 },
             success: function(resp){
                 parent.reloadBlogs();

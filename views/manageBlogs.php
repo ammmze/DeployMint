@@ -10,10 +10,22 @@
     <p>These should be remote wordpress installations which also have the DeployMint plugin activated. These will be where snapshots can be deployed.</p>
     <table class="form-table deploymintTable">
     <tr>
+        <td>Enter a blog name:</td>
+        <td><input type="text" id="sdBlogName" value="" size="75" maxlength="255" /></td>
+    </tr>
+    <tr>
+        <td>Ignore SSL certificate errors:</td>
+        <td>
+            <input type="checkbox" id="sdBlogIgnoreCert" value="1" />
+            If the blog has a self-signed certificate, or another certificate that is known to be invalid, but you would like to still make requests, you should check this.
+        </td>
+    </tr>
+    <tr>
         <td>Enter the blog url:</td>
         <td><input type="text" id="sdBlogUrl" value="" size="75" maxlength="255" /></td>
-
-        <td><input type="button" name="but2" value="Add a blog" onclick="deploymint.addBlog(jQuery('#sdBlogUrl').val()); return false;" class="button-primary" /></td>
+    </tr>
+    <tr>
+        <td colspan=2><input type="button" name="but2" value="Add blog" onclick="deploymint.addBlog(jQuery('#sdBlogUrl').val(), jQuery('#sdBlogName').val(), jQuery('#sdBlogIgnoreCert').is(':checked')); return false;" class="button-primary" /></td>
     </tr>
     </table>
     
@@ -27,14 +39,18 @@
 <table class="deploymint-blogs">
     <thead>
         <tr>
+            <th>Name</th>
             <th>URL</th>
+            <th>Ignore Certificate Errors</th>
             <th>Actions</th>
         </tr>
     </thead>
     <tbody>
         {{each(i,blog) blogs}}
             <tr class="deploymint-blog">
+                <td>${blog.blog_name}</td>
                 <td>${blog.blog_url}</td>
+                <td>${blog.ignore_cert}</td>
                 <td>
                     <input disabled="disabled" type="button" value="Edit" title="Not yet implemented" onclick="deploymint.editBlog(${blog.id}); return false;" class="button-primary">
                     <input type="button" value="Remove" onclick="deploymint.removeBlog(${blog.id}); return false;" class="button-secondary">
