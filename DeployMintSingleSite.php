@@ -168,7 +168,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 'name'      => $name,
                 'desc'      => $desc,
             );
-            return $this->doXmlrpcRequest($data, 'deploymin.createSnapshot');
+            return $this->doXmlrpcRequest($data, 'deploymint.createSnapshot');
         } else {
             throw new Exception("Could not create snapshot. Details could not be validated");
         }
@@ -214,8 +214,12 @@ class DeployMintSingleSite extends DeployMintAbstract
         if (!$response) {
             throw new Exception(print_r($result, true));
         }
+        if (is_array($response) && xmlrpc_is_fault($response)) {
+            throw new Exception($response['faultString'], $response['faultCode']);
+        }
+
         if (!$response['success']) {
-            throw new Exception('Creation failed. Remote responded with: ' . $response['error']);
+            throw new Exception('Request failed. Remote responded with: ' . $response['error']);
         }
         return true;
     }
