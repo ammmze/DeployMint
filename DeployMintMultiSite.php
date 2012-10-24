@@ -3,6 +3,18 @@
 class DeployMintMultiSite extends DeployMintAbstract
 {
 
+    public function setup()
+    {
+        parent::setup();
+
+        if (is_network_admin()) {
+            add_action('network_admin_menu', array($this,'adminMenu'));
+        }
+        if (!$this->allOptionsSet()) {
+            add_action('network_admin_notices', array($this, 'showFillOptionsMessage'));
+        }
+    }
+
     public function adminMenu()
     {
         extract($this->getOptions(), EXTR_OVERWRITE);

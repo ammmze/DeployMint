@@ -7,6 +7,13 @@ class DeployMintSingleSite extends DeployMintAbstract
     {
         parent::setup();
 
+        if (is_admin()) {
+            add_action('admin_menu', array($this,'adminMenu'));
+        }
+        if (!$this->allOptionsSet()) {
+            add_action('admin_notices', array($this, 'showFillOptionsMessage'));
+        }
+
         add_action('wp_ajax_deploymint_reloadBlogs', array($this, 'actionReloadBlogs'));
         add_action('wp_ajax_deploymint_addBlog', array($this, 'actionAddBlog'));
         add_action('wp_ajax_deploymint_removeBlog', array($this, 'actionRemoveBlog'));

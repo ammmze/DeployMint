@@ -45,11 +45,6 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     public function setup()
     {
-        if (is_network_admin() && is_multisite()) {
-            add_action('network_admin_menu', array($this,'adminMenu'));
-        } elseif (is_admin() && !is_multisite()) {
-            add_action('admin_menu', array($this,'adminMenu'));
-        }
         add_action('init', array($this, 'initHandler'));
         add_action('wp_enqueue_scripts', array($this, 'enqueueScripts'));
         
@@ -65,23 +60,16 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
         add_action('wp_ajax_deploymint_updateDeploySnapshot', array($this, 'actionGetDeployOptions'));
         add_action('wp_ajax_deploymint_deploySnapshot', array($this, 'actionDeploySnapshot'));
-        //add_action('wp_ajax_deploymint_deploySnapshot', 'deploymint::ajax_deploySnapshot_callback');
         
-        add_action('wp_ajax_deploymint_deploy', 'deploymint::ajax_deploy_callback');
+        add_action('wp_ajax_deploymint_deploy', array($this, 'ajax_deploy_callback'));
 
-        add_action('wp_ajax_deploymint_updateSnapDesc', 'deploymint::ajax_updateSnapDesc_callback');
+        add_action('wp_ajax_deploymint_updateSnapDesc', array($this, 'ajax_updateSnapDesc_callback'));
         
-        add_action('wp_ajax_deploymint_undoDeploy', 'deploymint::ajax_undoDeploy_callback');
+        add_action('wp_ajax_deploymint_undoDeploy', array($this, 'ajax_undoDeploy_callback'));
         
-        add_action('wp_ajax_deploymint_deleteBackups', 'deploymint::ajax_deleteBackups_callback');
-        add_action('wp_ajax_deploymint_updateOptions', 'deploymint::ajax_updateOptions_callback');
-        if (!$this->allOptionsSet()) {
-            if (is_multisite()) {
-                add_action('network_admin_notices', 'deploymint::msgDataDir');
-            } else {
-                add_action('admin_notices', 'deploymint::msgDataDir');
-            }
-        }
+        add_action('wp_ajax_deploymint_deleteBackups', array($this, 'ajax_deleteBackups_callback'));
+        add_action('wp_ajax_deploymint_updateOptions', array($this, 'ajax_updateOptions_callback'));
+        
     }
 
     protected function createSchema()
@@ -260,7 +248,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     public function actionIndex()
     {
-        if (!self::allOptionsSet()) {
+        if (!$this->allOptionsSet()) {
             return $this->actionOptions();
         }
         include 'views/index.php';
@@ -273,7 +261,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     public function actionManageBlogs()
     {
-        if (!self::allOptionsSet()) {
+        if (!$this->allOptionsSet()) {
             return $this->actionOptions();
         }
         include 'views/manageBlogs.php';
@@ -281,7 +269,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     public function actionManageProject($id)
     {
-        if (!self::allOptionsSet()) {
+        if (!$this->allOptionsSet()) {
             return $this->actionOptions();
         }
         $this->checkPerms();
@@ -297,7 +285,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     public function actionRevert()
     {
         $this->checkPerms();
-        if (!self::allOptionsSet()) {
+        if (!$this->allOptionsSet()) {
             return $this->actionOptions();
         }
         extract($this->getOptions(), EXTR_OVERWRITE);
@@ -989,7 +977,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
             ;
 
-            self::emptyDatabase($backupDatabase, $dbh);
+            $this->emptyDatabase($backupDatabase, $dbh);
             foreach ($allTables as $t) {
                 #We're taking across all tables including dep_ tables just so we have a backup. We won't deploy dep_ tables though
                 mysql_query("create table $backupDatabase.$t like $dbname.$t", $dbh);
@@ -1058,27 +1046,19 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if ($temporaryDatabaseCreated) {
             mysql_query("DROP DATABASE $temporaryDatabase", $dbh);
         } else {
-            self::emptyDatabase($temporaryDatabase, $dbh);
+            $this->emptyDatabase($temporaryDatabase, $dbh);
         }
         if (mysql_error($dbh)) {
             throw new Exception("A database error occured trying to drop an old temporary database, but the deployment completed. Error was: " . substr(mysql_error($dbh), 0, 200));
         }
         if (!$backupDisabled) {
-            self::deleteOldBackupDatabases();
+            $this->deleteOldBackupDatabases();
         }
         return true;
         //die(json_encode(array('ok' => 1, 'lockTime' => $lockTime)));
     }
 
-
-
-
-
-
-
-
-
-    private static function emptyDatabase($database, $connection)
+    protected function emptyDatabase($database, $connection)
     {
         if ($result = mysql_query("SHOW TABLES IN $database", $connection)) {
             while ($row = mysql_fetch_array($result, MYSQL_NUM)) {
@@ -1087,10 +1067,155 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
     }
 
-    public static function ajax_updateOptions_callback()
+
+
+    public function ajax_deploy_callback()
     {
-        self::checkPerms();
-        $defaultOptions = self::getDefaultOptions();
+        $this->checkPerms();
+        $fromid = $_POST['deployFrom'];
+        $toid = $_POST['deployTo'];
+        $msgs = array();
+        $fromBlog = $this->pdb->get_results($this->pdb->prepare("SELECT blog_id, domain, path FROM wp_blogs WHERE blog_id=%d", $fromid), ARRAY_A);
+        $toBlog = $this->pdb->get_results($this->pdb->prepare("SELECT blog_id, domain, path FROM wp_blogs WHERE blog_id=%d", $toid), ARRAY_A);
+        if (sizeof($fromBlog) != 1) {
+            die("We could not find the blog you're deploying from.");
+        }
+        if (sizeof($toBlog) != 1) {
+            die("We could not find the blog you're deploying to.");
+        }
+        $fromPrefix = '';
+        $toPrefix = '';
+
+        if ($fromid == 1) {
+            $fromPrefix = 'wp_';
+        } else {
+            $fromPrefix = 'wp_' . $fromid . '_';
+        }
+        if ($toid == 1) {
+            $toPrefix = 'wp_';
+        } else {
+            $toPrefix = 'wp_' . $toid . '_';
+        }
+        $t_fromPosts = $fromPrefix . 'posts';
+        $t_toPosts = $toPrefix . 'posts';
+        $fromPostTotal = $this->pdb->get_results($this->pdb->prepare("SELECT count(*) as cnt FROM $t_fromPosts WHERE post_status='publish'", $fromid), ARRAY_A);
+        $toPostTotal = $this->pdb->get_results($this->pdb->prepare("SELECT count(*) as cnt FROM $t_toPosts WHERE post_status='publish'", $toid), ARRAY_A);
+        $fromNewestPost = $this->pdb->get_results($this->pdb->prepare("SELECT post_title FROM $t_fromPosts WHERE post_status='publish' ORDER BY post_modified DESC LIMIT 1", $fromid), ARRAY_A);
+        $toNewestPost = $this->pdb->get_results($this->pdb->prepare("SELECT post_title FROM $t_toPosts WHERE post_status='publish' ORDER BY post_modified DESC LIMIT 1", $toid), ARRAY_A);
+        die(json_encode(array(
+                    'fromid' => $fromid,
+                    'toid' => $toid,
+                    'fromDomain' => $fromBlog[0]['domain'],
+                    'fromPostTotal' => $fromPostTotal[0]['cnt'],
+                    'fromNewestPostTitle' => $fromNewestPost[0]['post_title'],
+                    'toDomain' => $toBlog[0]['domain'],
+                    'toPostTotal' => $toPostTotal[0]['cnt'],
+                    'toNewestPostTitle' => $toNewestPost[0]['post_title']
+                )));
+    }
+
+    public function ajax_updateSnapDesc_callback()
+    {
+        $this->checkPerms();
+        $opt = $this->getOptions();
+        extract($opt, EXTR_OVERWRITE);
+        $pid = $_POST['projectid'];
+        $snapname = $_POST['snapname'];
+        $res = $this->getProject($pid);
+        $dir = $res['dir'];
+        $fulldir = $datadir . $dir;
+        $logOut = $this->mexec("$git checkout $snapname >/dev/null 2>&1 ; $git log -n 1 2>&1 ; $git checkout master >/dev/null 2>&1", $fulldir);
+        $logOut = preg_replace('/^commit [0-9a-fA-F]+[\r\n]+/', '', $logOut);
+        if (preg_match('/fatal: bad default revision/', $logOut)) {
+            die(json_encode(array('desc' => '')));
+        }
+        die(json_encode(array('desc' => $logOut)));
+    }
+
+    public static function ajax_undoDeploy_callback()
+    {
+        $this->checkPerms();
+        $opt = $this->getOptions(true);
+        extract($opt, EXTR_OVERWRITE);
+        $sourceDBName = $_POST['dbname'];
+        $dbuser = DB_USER;
+        $dbpass = DB_PASSWORD;
+        $dbhost = DB_HOST;
+        $dbname = DB_NAME;
+        $dbh = mysql_connect($dbhost, $dbuser, $dbpass, true);
+        if (mysql_error($dbh)) {
+            $this->ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        mysql_select_db($sourceDBName, $dbh);
+        if (mysql_error($dbh)) {
+            $this->ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        $res1 = mysql_query("show tables", $dbh);
+        if (mysql_error($dbh)) {
+            $this->ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        $allTables = array();
+        while ($row1 = mysql_fetch_array($res1, MYSQL_NUM)) {
+            if (!preg_match('/^dep_/', $row1[0])) {
+                array_push($allTables, $row1[0]);
+            }
+        }
+        $renames = array();
+        foreach ($allTables as $t) {
+            array_push($renames, "$dbname.$t TO $temporaryDatabase.$t, $sourceDBName.$t TO $dbname.$t");
+        }
+        $stime = microtime(true);
+        mysql_query("RENAME TABLE " . implode(', ', $renames), $dbh);
+        if (mysql_error($dbh)) {
+            $this->ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        $lockTime = sprintf('%.4f', microtime(true) - $stime);
+        if ($temporaryDatabaseCreated) {
+            mysql_query("DROP DATABASE $temporaryDatabase", $dbh);
+        } else {
+            $this->emptyDatabase($temporaryDatabase, $dbh);
+        }
+        foreach ($allTables as $t) {
+            mysql_query("CREATE TABLE $sourceDBName.$t LIKE $dbname.$t", $dbh);
+            if (mysql_error($dbh)) {
+                $this->ajaxError("A database error occured trying to recreate the backup database, but the deployment completed. Error: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("INSERT INTO $sourceDBName.$t SELECT * FROM $dbname.$t", $dbh);
+            if (mysql_error($dbh)) {
+                $this->ajaxError("A database error occured trying to recreate the backup database, but the deployment completed. Error: " . substr(mysql_error($dbh), 0, 200));
+            }
+        }
+        if (mysql_error($dbh)) {
+            $this->ajaxError("A database error occured (but the revert was completed!): " . substr(mysql_error($dbh), 0, 200));
+        }
+        die(json_encode(array('ok' => 1, 'lockTime' => $lockTime)));
+    }
+
+    public function ajax_deleteBackups_callback()
+    {
+        $this->checkPerms();
+        $dbuser = DB_USER;
+        $dbpass = DB_PASSWORD;
+        $dbhost = DB_HOST;
+        $dbname = DB_NAME;
+        $dbh = mysql_connect($dbhost, $dbuser, $dbpass, true);
+        if (mysql_error($dbh)) {
+            $this->ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        $toDel = $_POST['toDel'];
+        for ($i = 0; $i < sizeof($toDel); $i++) {
+            mysql_query("drop database " . $toDel[$i], $dbh);
+            if (mysql_error($dbh)) {
+                $this->ajaxError("Could not drop database " . $toDel[$i] . ". Error: " . mysql_error($dbh));
+            }
+        }
+        die(json_encode(array('ok' => 1)));
+    }
+
+    public function ajax_updateOptions_callback()
+    {
+        $this->checkPerms();
+        $defaultOptions = $this->getDefaultOptions();
         $git = trim($_POST['git']);
         $mysql = trim($_POST['mysql']);
         $mysqldump = trim($_POST['mysqldump']);
@@ -1158,219 +1283,17 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 'backupDatabase' => $backupDatabase,
                 'preserveBlogName' => $preserveBlogName
             );
-            self::updateOptions($options);
+            $this->updateOptions($options);
             die(json_encode(array('ok' => 1)));
         }
     }
 
-    public static function ajax_deleteBackups_callback()
-    {
-        self::checkPerms();
-        $dbuser = DB_USER;
-        $dbpass = DB_PASSWORD;
-        $dbhost = DB_HOST;
-        $dbname = DB_NAME;
-        $dbh = mysql_connect($dbhost, $dbuser, $dbpass, true);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        $toDel = $_POST['toDel'];
-        for ($i = 0; $i < sizeof($toDel); $i++) {
-            mysql_query("drop database " . $toDel[$i], $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("Could not drop database " . $toDel[$i] . ". Error: " . mysql_error($dbh));
-            }
-        }
-        die(json_encode(array('ok' => 1)));
-    }
-
     
 
-    public static function ajax_undoDeploy_callback()
+    private function deleteOldBackupDatabases()
     {
-        self::checkPerms();
-        global $wpdb;
-        $opt = self::getOptions(true);
-        extract($opt, EXTR_OVERWRITE);
-        $sourceDBName = $_POST['dbname'];
-        $dbuser = DB_USER;
-        $dbpass = DB_PASSWORD;
-        $dbhost = DB_HOST;
-        $dbname = DB_NAME;
-        $dbh = mysql_connect($dbhost, $dbuser, $dbpass, true);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        mysql_select_db($sourceDBName, $dbh);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        $res1 = mysql_query("show tables", $dbh);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        $allTables = array();
-        while ($row1 = mysql_fetch_array($res1, MYSQL_NUM)) {
-            if (!preg_match('/^dep_/', $row1[0])) {
-                array_push($allTables, $row1[0]);
-            }
-        }
-        $renames = array();
-        foreach ($allTables as $t) {
-            array_push($renames, "$dbname.$t TO $temporaryDatabase.$t, $sourceDBName.$t TO $dbname.$t");
-        }
-        $stime = microtime(true);
-        mysql_query("RENAME TABLE " . implode(', ', $renames), $dbh);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        $lockTime = sprintf('%.4f', microtime(true) - $stime);
-        if ($temporaryDatabaseCreated) {
-            mysql_query("drop database $temporaryDatabase", $dbh);
-        } else {
-            self::emptyDatabase($temporaryDatabase, $dbh);
-        }
-        foreach ($allTables as $t) {
-            mysql_query("create table $sourceDBName.$t like $dbname.$t", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured trying to recreate the backup database, but the deployment completed. Error: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into $sourceDBName.$t select * from $dbname.$t", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured trying to recreate the backup database, but the deployment completed. Error: " . substr(mysql_error($dbh), 0, 200));
-            }
-        }
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured (but the revert was completed!): " . substr(mysql_error($dbh), 0, 200));
-        }
-        die(json_encode(array('ok' => 1, 'lockTime' => $lockTime)));
-    }
-
-    public static function ajax_deploySnapshot_callback()
-    {
-        
-    }
-
-    public static function ajax_updateSnapDesc_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $opt = self::getOptions();
-        extract($opt, EXTR_OVERWRITE);
-        $pid = $_POST['projectid'];
-        $snapname = $_POST['snapname'];
-        $res = $wpdb->get_results($wpdb->prepare("select dir from dep_projects where id=%d", $pid), ARRAY_A);
-        $dir = $res[0]['dir'];
-        $fulldir = $datadir . $dir;
-        $logOut = self::mexec("$git checkout $snapname >/dev/null 2>&1 ; $git log -n 1 2>&1 ; $git checkout master >/dev/null 2>&1", $fulldir);
-        $logOut = preg_replace('/^commit [0-9a-fA-F]+[\r\n]+/', '', $logOut);
-        if (preg_match('/fatal: bad default revision/', $logOut)) {
-            die(json_encode(array('desc' => '')));
-        }
-        die(json_encode(array('desc' => $logOut)));
-    }
-
-    public static function ajax_updateDeploySnapshot_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $opt = self::getOptions();
-        extract($opt, EXTR_OVERWRITE);
-        $pid = $_POST['projectid'];
-        $blogsTable = $wpdb->base_prefix . 'blogs';
-        $blogs = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain, $blogsTable.path as path from dep_members, $blogsTable where dep_members.blog_id = $blogsTable.blog_id and dep_members.project_id = %d and dep_members.deleted=0", $pid), ARRAY_A);
-        $res1 = $wpdb->get_results($wpdb->prepare("select dir from dep_projects where id=%d", $pid), ARRAY_A);
-        $dir = $datadir . $res1[0]['dir'];
-        if (!is_dir($dir)) {
-            self::ajaxError("The directory $dir for this project does not exist.");
-        }
-        $bOut = self::mexec("$git branch 2>&1", $dir);
-        $branches = preg_split('/[\r\n\s\t\*]+/', $bOut);
-        $snapshots = array();
-        for ($i = 0; $i < sizeof($branches); $i++) {
-            if (preg_match('/\w+/', $branches[$i])) {
-                $bname = $branches[$i];
-                if ($bname == 'master') {
-                    continue;
-                }
-                $dateOut = self::mexec("$git checkout $bname 2>&1; $git log -n 1 | grep Date 2>&1", $dir);
-                $m = '';
-                if (preg_match('/Date:\s+(.+)$/', $dateOut, &$m)) {
-                    $ctime = strtotime($m[1]);
-                    $date = $m[1];
-                    array_push($snapshots, array('name' => $branches[$i], 'created' => $date, 'ctime' => $ctime));
-                }
-            } else {
-                unset($branches[$i]);
-            }
-        }
-        if (sizeof($snapshots) > 0) {
-
-            function ctimeSort($b, $a)
-            {
-                if ($a['ctime'] == $b['ctime']) {
-                    return 0;
-                } return ($a['ctime'] < $b['ctime']) ? -1 : 1;
-            }
-
-            usort($snapshots, 'ctimeSort');
-        }
-        die(json_encode(array(
-                    'blogs' => $blogs,
-                    'snapshots' => $snapshots
-                )));
-    }
-
-    public static function ajax_deploy_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $fromid = $_POST['deployFrom'];
-        $toid = $_POST['deployTo'];
-        $msgs = array();
-        $fromBlog = $wpdb->get_results($wpdb->prepare("select blog_id, domain, path from wp_blogs where blog_id=%d", $fromid), ARRAY_A);
-        $toBlog = $wpdb->get_results($wpdb->prepare("select blog_id, domain, path from wp_blogs where blog_id=%d", $toid), ARRAY_A);
-        if (sizeof($fromBlog) != 1) {
-            die("We could not find the blog you're deploying from.");
-        }
-        if (sizeof($toBlog) != 1) {
-            die("We could not find the blog you're deploying to.");
-        }
-        $fromPrefix = '';
-        $toPrefix = '';
-
-        if ($fromid == 1) {
-            $fromPrefix = 'wp_';
-        } else {
-            $fromPrefix = 'wp_' . $fromid . '_';
-        }
-        if ($toid == 1) {
-            $toPrefix = 'wp_';
-        } else {
-            $toPrefix = 'wp_' . $toid . '_';
-        }
-        $t_fromPosts = $fromPrefix . 'posts';
-        $t_toPosts = $toPrefix . 'posts';
-        $fromPostTotal = $wpdb->get_results($wpdb->prepare("select count(*) as cnt from $t_fromPosts where post_status='publish'", $fromid), ARRAY_A);
-        $toPostTotal = $wpdb->get_results($wpdb->prepare("select count(*) as cnt from $t_toPosts where post_status='publish'", $toid), ARRAY_A);
-        $fromNewestPost = $wpdb->get_results($wpdb->prepare("select post_title from $t_fromPosts where post_status='publish' order by post_modified desc limit 1", $fromid), ARRAY_A);
-        $toNewestPost = $wpdb->get_results($wpdb->prepare("select post_title from $t_toPosts where post_status='publish' order by post_modified desc limit 1", $toid), ARRAY_A);
-        die(json_encode(array(
-                    'fromid' => $fromid,
-                    'toid' => $toid,
-                    'fromDomain' => $fromBlog[0]['domain'],
-                    'fromPostTotal' => $fromPostTotal[0]['cnt'],
-                    'fromNewestPostTitle' => $fromNewestPost[0]['post_title'],
-                    'toDomain' => $toBlog[0]['domain'],
-                    'toPostTotal' => $toPostTotal[0]['cnt'],
-                    'toNewestPostTitle' => $toNewestPost[0]['post_title']
-                )));
-    }
-
-    private static function deleteOldBackupDatabases()
-    {
-        self::checkPerms();
-        $opt = self::getOptions();
+        $this->checkPerms();
+        $opt = $this->getOptions();
         extract($opt, EXTR_OVERWRITE);
         if ($numBackups < 1) {
             return;
@@ -1391,7 +1314,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $dbPrefix = ($backupDatabase == '') ? 'depbak' : $backupDatabase;
             if (preg_match('/^' . $dbPrefix . '__/', $row1[0])) {
                 $dbname = $row1[0];
-                $res2 = mysql_query("select val from $dbname.dep_backupdata where name='deployTime'", $dbh);
+                $res2 = mysql_query("SELECT val FROM $dbname.dep_backupdata WHERE name='deployTime'", $dbh);
                 if (mysql_error($dbh)) {
                     error_log("Could not get deployment time for $dbname database");
                     return;
@@ -1428,7 +1351,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     }
 
     
-    private static function showMessage($message, $errormsg = false)
+    private function showMessage($message, $errormsg = false)
     {
         if ($errormsg) {
             echo '<div id="message" class="error">';
@@ -1439,8 +1362,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
         echo "<p><strong>$message</strong></p></div>";
     }
 
-    public static function msgDataDir()
+    public function showFillOptionsMessage()
     {
-        deploymint::showMessage("You need to visit the options page for \"DeployMint\" and configure all options including a data directory that is writable by your web server.", true);
+        $this->showMessage("You need to visit the options page for \"DeployMint\" and configure all options including a data directory that is writable by your web server.", true);
     }
 }
