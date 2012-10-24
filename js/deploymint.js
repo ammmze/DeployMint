@@ -228,7 +228,9 @@ window['deploymint'] = {
                     return;
                 }
                 jQuery('#sdBlogs').empty();
-                jQuery('#sdBlogTmpl').tmpl(resp).appendTo('#sdBlogs');
+                if (resp && resp.blogs && resp.blogs.length){
+                    jQuery('#sdBlogTmpl').tmpl(resp).appendTo('#sdBlogs');
+                }
             },
             error: function(){}
             });

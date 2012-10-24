@@ -63,11 +63,14 @@ abstract class DeployMintAbstract implements DeployMintInterface
         add_action('wp_ajax_deploymint_updateCreateSnapshot', array($this, 'actionGetProjectBlogs'));
         add_action('wp_ajax_deploymint_createSnapshot', array($this, 'actionCreateSnapshot'));
 
-        add_action('wp_ajax_deploymint_updateDeploySnapshot', 'deploymint::ajax_updateDeploySnapshot_callback');
-
+        add_action('wp_ajax_deploymint_updateDeploySnapshot', array($this, 'actionGetDeployOptions'));
+        add_action('wp_ajax_deploymint_deploySnapshot', array($this, 'actionDeploySnapshot'));
+        //add_action('wp_ajax_deploymint_deploySnapshot', 'deploymint::ajax_deploySnapshot_callback');
+        
         add_action('wp_ajax_deploymint_deploy', 'deploymint::ajax_deploy_callback');
+
         add_action('wp_ajax_deploymint_updateSnapDesc', 'deploymint::ajax_updateSnapDesc_callback');
-        add_action('wp_ajax_deploymint_deploySnapshot', 'deploymint::ajax_deploySnapshot_callback');
+        
         add_action('wp_ajax_deploymint_undoDeploy', 'deploymint::ajax_undoDeploy_callback');
         
         add_action('wp_ajax_deploymint_deleteBackups', 'deploymint::ajax_deleteBackups_callback');
@@ -112,7 +115,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $success = $this->pdb->query("CREATE TABLE IF NOT EXISTS dep_blogs (
             id int UNSIGNED NOT NULL auto_increment PRIMARY KEY,
             blog_url varchar(255) NOT NULL,
-            project_id int UNSIGNED NOT NULL,
+            blog_name varchar(255) NOT NULL,
+            blog_path varchar(255) NOT NULL,
             deleted tinyint UNSIGNED default 0
         ) default charset=utf8");
         if (!$success) {
@@ -453,13 +457,18 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
     }
 
+    protected function projectExists($name)
+    {
+        $result = $this->pdb->get_results($this->pdb->prepare("SELECT name FROM dep_projects WHERE name=%s AND deleted=0", $name), ARRAY_A);
+        return sizeof($result) > 0;
+    }
+
     protected function createProject($name)
     {
         $this->checkPerms();
         $opt = $this->getOptions();
         extract($opt, EXTR_OVERWRITE);
-        $exists = $this->pdb->get_results($this->pdb->prepare("SELECT name FROM dep_projects WHERE name=%s AND deleted=0", $name), ARRAY_A);
-        if (sizeof($exists) > 0) {
+        if ($this->projectExists($name)) {
             throw new Exception('A project with that name already exists');
         }
         $dir = $name;
@@ -479,8 +488,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!@mkdir($finaldir, 0755)) {
             throw new Exception('Could not create directory ' . $finaldir);
         }
-        $git1 = self::mexec("$git init ; $git add . ", $finaldir);
-        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir) VALUES (unix_timestamp(), %s, %s)", $_POST['name'], $fulldir));
+        $git1 = $this->mexec("$git init ; $git add . ", $finaldir);
+        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir) VALUES (unix_timestamp(), %s, %s)", $name, $fulldir));
         return true;
     }
 
@@ -493,7 +502,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function getProject($id)
     {
-        return $this->pdb->get_results($this->pdb->prepare("SELECT * FROM dep_projects WHERE id=%d AND deleted=0", array($id)), ARRAY_A);
+        return $this->pdb->get_row($this->pdb->prepare("SELECT * FROM dep_projects WHERE id=%d AND deleted=0", array($id)), ARRAY_A);
     }
 
     protected function getProjects()
@@ -584,13 +593,481 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return true;
     }
 
+    protected function getTablePrefix($blogId)
+    {
+        return $this->pdb->base_prefix;
+    }
+
     protected function doSnapshot($projectId, $blogId, $name, $desc)
     {
-        // Create branch
-        // Dump tables
-        // Copy images
-        // Copy plugins
-        // Copy themes
+        $opt = $this->getOptions();
+        extract($opt, EXTR_OVERWRITE);
+        $proj = $this->getProject($projectId);
+        $dir = $datadir . $proj['dir'] . '/';
+
+        // Check that project directory exists
+        if (!is_dir($dir)) {
+            throw new Exception("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
+        }
+
+        $this->mexec("$git fetch origin");
+
+        // Make sure project directory is a working git directory
+        $branchOut = $this->mexec("$git branch -a 2>&1", $dir);
+        if (preg_match('/fatal/', $branchOut)) {
+            throw new Exception("The directory $dir is not a valid git repository. The output we received is: $branchOut");
+        }
+
+        // Check if branch exists
+        $branches = preg_split('/[\r\n\s\t\*]+/', $branchOut);
+        $bdup = array();
+        for ($i = 0; $i < sizeof($branches); $i++) {
+            $b = preg_replace('/remotes\/.*\//i', '', $branches[$i]);
+            $bdup[$b] = 1;
+        }
+        if (array_key_exists($name, $bdup)) {
+            throw new Exception("A snapshot with the name $name already exists. Please choose another.");
+        }
+        $cout1 = $this->mexec("$git checkout master 2>&1", $dir);
+        //Before we do our initial commit we will get an error trying to checkout master because it doesn't exist.
+        if (!preg_match("/(?:Switched to branch|Already on|error: pathspec 'master' did not match)/", $cout1)) {
+            throw new Exception("We could not switch the git repository in $dir to 'master'. The output was: $cout1");
+        }
+
+        $prefix = $this->getTablePrefix($blogId);
+        $prefixFile = $dir . 'deployData.txt';
+        $fh2 = fopen($prefixFile, 'w');
+        if (!fwrite($fh2, $prefix . ':' . microtime(true))) {
+            throw new Exception("We could not write to deployData.txt in the directory $dir");
+        }
+        fclose($fh2);
+        $prefixOut = $this->mexec("$git add deployData.txt 2>&1", $dir);
+
+        // Add the Media locations
+        $files = $this->mexec("$rsync -r -d " . WP_CONTENT_DIR . "/blogs.dir/$blogId/* $dir" . "blogs.dir/");
+        $filesOut = $this->mexec("$git add blogs.dir/ 2>&1", $dir);
+
+        $siteURLRes = $this->pdb->get_results($this->pdb->prepare("SELECT option_name, option_value FROM $prefix" . "options WHERE option_name = 'siteurl'"), ARRAY_A);
+        $siteURL = $siteURLRes[0]['option_value'];
+        $desc = "Snapshot of: $siteURL\n" . $desc;
+
+        $dumpErrs = array();
+        foreach ($this->wpTables as $t) {
+            $tableFile = $t . '.sql';
+            $tableName = $prefix . $t;
+            $path = $dir . $tableFile;
+            $dbuser = DB_USER;
+            $dbpass = DB_PASSWORD;
+            $dbhost = DB_HOST;
+            $dbname = DB_NAME;
+            $o1 = $this->mexec("$mysqldump --skip-comments --extended-insert --complete-insert --skip-comments -u $dbuser -p$dbpass -h $dbhost $dbname $tableName > $path 2>&1", $dir);
+            if (preg_match('/\w+/', $o1)) {
+                array_push($dumpErrs, $o1);
+            } else {
+
+                $grepOut = $this->mexec("grep CREATE $path 2>&1");
+                if (!preg_match('/CREATE/', $grepOut)) {
+                    array_push($dumpErrs, "We could not create a valid table dump file for $tableName");
+                } else {
+                    $gitAddOut = $this->mexec("$git add $tableFile 2>&1", $dir);
+                    if (preg_match('/\w+/', $gitAddOut)) {
+                        throw new Exception("We encountered an error running '$git add $tableFile' the error was: $gitAddOut");
+                    }
+                }
+            }
+        }
+        if (sizeof($dumpErrs) > 0) {
+            $resetOut = $this->mexec("$git reset --hard HEAD 2>&1", $dir);
+            if (!preg_match('/HEAD is now at/', $resetOut)) {
+                throw new Exception("Errors occured during mysqldump and we could not revert the git repository in $dir back to it's original state using '$git reset --hard HEAD'. The output we got was: " . $resetOut);
+            }
+
+            throw new Exception("Errors occured during mysqldump: " . implode(', ', $dumpErrs));
+        }
+        $tmpfile = $datadir . microtime(true) . '.tmp';
+        $fh = fopen($tmpfile, 'w');
+        fwrite($fh, $desc);
+        fclose($fh);
+        global $current_user;
+        get_currentuserinfo();
+        $commitUser = $current_user->user_firstname . ' ' . $current_user->user_lastname . ' <' . $current_user->user_email . '>';
+        $commitOut2 = $this->mexec("$git commit --author=\"$commitUser\" -a -F \"$tmpfile\" 2>&1", $dir);
+        unlink($tmpfile);
+        if (!preg_match('/files changed/', $commitOut2)) {
+            throw new Exception("git commit failed. The output we got was: $commitOut2");
+        }
+        $brOut2 = $this->mexec("$git branch $name 2>&1 ", $dir);
+        if (preg_match('/\w+/', $brOut2)) {
+            throw new Exception("We encountered an error running '$git branch $name' the output was: $brOut2");
+        }
+        $brOut2 = $this->mexec("$git push origin $name 2>&1 ", $dir);
+        return true;
+    }
+
+    public function actionGetDeployOptions()
+    {
+        $this->checkPerms();
+        try {
+            $blogs = $this->getProjectBlogs($_REQUEST['projectid']);
+            $snapshots = $this->getProjectSnapshots($_REQUEST['projectid']);
+            die(json_encode(array('blogs'=>$blogs,'snapshots'=>$snapshots)));
+        } catch (Exception $e){
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+    }
+
+
+    protected function getProjectSnapshots($projectId)
+    {
+        $opt = $this->getOptions();
+        extract($opt, EXTR_OVERWRITE);
+        
+        $project = $this->getProject($projectId);
+        $dir = $datadir . $project['dir'];
+        if (!is_dir($dir)) {
+            throw new Exception("The directory $dir for this project does not exist.");
+        }
+        $bOut = $this->mexec("$git branch 2>&1", $dir);
+        $branches = preg_split('/[\r\n\s\t\*]+/', $bOut);
+        $snapshots = array();
+        for ($i = 0; $i < sizeof($branches); $i++) {
+            if (preg_match('/\w+/', $branches[$i])) {
+                $bname = $branches[$i];
+                if ($bname == 'master') {
+                    continue;
+                }
+                $dateOut = $this->mexec("$git checkout $bname 2>&1; $git log -n 1 | grep Date 2>&1", $dir);
+                $m = '';
+                if (preg_match('/Date:\s+(.+)$/', $dateOut, &$m)) {
+                    $ctime = strtotime($m[1]);
+                    $date = $m[1];
+                    array_push($snapshots, array('name' => $branches[$i], 'created' => $date, 'ctime' => $ctime));
+                }
+            } else {
+                unset($branches[$i]);
+            }
+        }
+        if (sizeof($snapshots) > 0) {
+
+            function ctimeSort($b, $a)
+            {
+                if ($a['ctime'] == $b['ctime']) {
+                    return 0;
+                } return ($a['ctime'] < $b['ctime']) ? -1 : 1;
+            }
+
+            usort($snapshots, 'ctimeSort');
+        }
+        return $snapshots;
+    }
+
+    public function actionDeploySnapshot()
+    {
+        $this->checkPerms();
+        try {
+            if ($this->deploySnapshot($_REQUEST['name'], $_REQUEST['blogid'], $_REQUEST['projectid'])) {
+                die(json_encode(array('ok' => 1)));
+            }
+        } catch (Exception $e){
+            //$this->ajaxError($e->getMessage());
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+    }
+
+    protected function deploySnapshot($snapshot, $blogId, $projectId)
+    {
+        return true;
+    }
+
+    protected function doDeploySnapshot($name, $blogid, $pid)
+    {
+        $opt = $this->getOptions(true, true);
+        extract($opt, EXTR_OVERWRITE);
+        $leaveComments = true; //$_POST['leaveComments'];
+
+        if (!preg_match('/\w+/', $name)) {
+            throw new Exception("Please select a snapshot to deploy.");
+        }
+        $prec = $this->pdb->get_results($this->pdb->prepare("select * from dep_projects where id=%d and deleted=0", $pid), ARRAY_A);
+        if (sizeof($prec) < 1) {
+            throw new Exception("That project doesn't exist.");
+        }
+        $proj = $prec[0];
+        $dir = $datadir . $proj['dir'] . '/';
+        $mexists = $this->pdb->get_results($this->pdb->prepare("select blog_id from dep_members where blog_id=%d and project_id=%d and deleted=0", $blogid, $pid), ARRAY_A);
+        if (sizeof($mexists) < 1) {
+            throw new Exception("That blog doesn't exist or is not a member of this project. Please select a valid blog to deploy to.");
+        }
+        if (!is_dir($dir)) {
+            throw new Exception("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
+        }
+        $co1 = $this->mexec("$git checkout $name 2>&1", $dir);
+        if (!preg_match('/(?:Switched|Already)/', $co1)) {
+            throw new Exception("We could not find snapshot $name in the git repository. The error was: $co1");
+        }
+        $destTablePrefix = $this->getTablePrefix($blogid);
+        $optionsToRestore = array('siteurl', 'home', 'upload_path');
+        if ($opt['preserveBlogName']) {
+            $optionsToRestore[] = 'blogname';
+        }
+        $res3 = $this->pdb->get_results($this->pdb->prepare("select option_name, option_value from $destTablePrefix" . "options where option_name IN ('" . implode("','", $optionsToRestore) . "')"), ARRAY_A);
+        if (sizeof($res3) < 1) {
+            throw new Exception("We could not find the data we need for the blog you're trying to deploy to.");
+        }
+        $options = array();
+        for ($i = 0; $i < sizeof($res3); $i++) {
+            $options[$res3[$i]['option_name']] = $res3[$i]['option_value'];
+        }
+
+        // Update the Media folder
+        $files = $this->mexec("$rsync -r -d $dir" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogid/");
+        
+        $fh = fopen($dir . 'deployData.txt', 'r');
+        $deployData = fread($fh, 100);
+        $depDat = explode(':', $deployData);
+        $sourceTablePrefix = $depDat[0];
+        if (!$sourceTablePrefix) {
+            throw new Exception("We could not read the table prefix from $dir/deployData.txt");
+        }
+        $dbuser = DB_USER;
+        $dbpass = DB_PASSWORD;
+        $dbhost = DB_HOST;
+        $dbname = DB_NAME;
+        $slurp1 = $this->mexec("cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase ", $dir);
+        if (preg_match('/\w+/', $slurp1)) {
+            throw new Exception("We encountered an error importing the data files from snapshot $name into database $temporaryDatabase $dbuser:$dbpass@$dbhost. The error was: " . substr($slurp1, 0, 1000));
+        }
+        $dbh = mysql_connect($dbhost, $dbuser, $dbpass, true);
+        if (mysql_error($dbh)) {
+            throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        if (!mysql_select_db($temporaryDatabase, $dbh)) {
+            throw new Exception("Could not select temporary database $temporaryDatabase : " . mysql_error($dbh));
+        }
+        $curdbres = mysql_query("select DATABASE()", $dbh);
+        $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
+        if (mysql_error($dbh)) {
+            throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        $destSiteURL = $options['siteurl'];
+        $res4 = mysql_query("select option_value from $sourceTablePrefix" . "options where option_name='siteurl'", $dbh);
+        if (mysql_error($dbh)) {
+            throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        if (!$res4) {
+            throw new Exception("We could not get the siteurl from the database we're about to deploy. That could mean that we could not create the DB or the import failed.");
+        }
+        $row = mysql_fetch_array($res4, MYSQL_ASSOC);
+        if (mysql_error($dbh)) {
+            throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        if (!$row) {
+            throw new Exception("We could not get the siteurl from the database we're about to deploy. That could mean that we could not create the DB or the import failed. (2)");
+        }
+        $sourceSiteURL = $row['option_value'];
+        if (!$sourceSiteURL) {
+            throw new Exception("We could not get the siteurl from the database we're about to deploy. That could mean that we could not create the DB or the import failed. (3)");
+        }
+        $destHost = preg_replace('/^https?:\/\/([^\/]+).*$/i', '$1', $destSiteURL);
+        $sourceHost = preg_replace('/^https?:\/\/([^\/]+).*$/i', '$1', $sourceSiteURL);
+        foreach ($options as $oname => $val) {
+            mysql_query("update $sourceTablePrefix" . "options set option_value='" . mysql_real_escape_string($val) . "' where option_name='" . mysql_real_escape_string($oname) . "'", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+        }
+        $res5 = mysql_query("select ID, post_content, guid from $sourceTablePrefix" . "posts", $dbh);
+        if (mysql_error($dbh)) {
+            throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        while ($row = mysql_fetch_array($res5, MYSQL_ASSOC)) {
+            $content = preg_replace('/(https?:\/\/)' . $sourceHost . '/i', '$1' . $destHost, $row['post_content']);
+            $guid = preg_replace('/(https?:\/\/)' . $sourceHost . '/i', '$1' . $destHost, $row['guid']);
+            mysql_query("update $sourceTablePrefix" . "posts set post_content='" . mysql_real_escape_string($content) . "', guid='" . mysql_real_escape_string($guid) . "' where ID=" . $row['ID'], $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+        }
+
+        mysql_query("UPDATE {$temporaryDatabase}.{$sourceTablePrefix}options SET option_name='{$destTablePrefix}user_roles' WHERE option_name='{$sourceTablePrefix}user_roles'", $dbh);
+        if (mysql_error($dbh)) {
+            throw new Exception("A database error occured while updating the user_roles option in the destination database: " . substr(mysql_error($dbh), 0, 200));
+        }
+
+        if ($leaveComments) {
+            //Delete comments from DB we're deploying
+            mysql_query("delete from $sourceTablePrefix" . "comments", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("delete from $sourceTablePrefix" . "commentmeta", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            //Bring comments across from live (destination) DB
+            mysql_query("insert into $temporaryDatabase.$sourceTablePrefix" . "comments select * from $dbname.$destTablePrefix" . "comments", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("insert into $temporaryDatabase.$sourceTablePrefix" . "commentmeta select * from $dbname.$destTablePrefix" . "commentmeta", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+
+            //Then remap comments to posts based on the "slug" which is the post_name
+            $res6 = mysql_query("select dp.post_name as destPostName, dp.ID as destID, sp.post_name as sourcePostName, sp.ID as sourceID from $dbname.$destTablePrefix" . "posts as dp, $temporaryDatabase.$sourceTablePrefix" . "posts as sp where dp.post_name = sp.post_name", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            if (!$res6) {
+                throw new Exception("DB error creating maps betweeb post slugs: " . mysql_error($dbh));
+            }
+            $pNameMap = array();
+            while ($row = mysql_fetch_array($res6, MYSQL_ASSOC)) {
+                $pNameMap[$row['destID']] = $row['sourceID'];
+            }
+
+            $res10 = mysql_query("select comment_ID, comment_post_ID from $sourceTablePrefix" . "comments", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            while ($row = mysql_fetch_array($res10, MYSQL_ASSOC)) {
+                //If a post exists in the source with the same slug as the destination, then associate the destination's comments with that post.
+                if (array_key_exists($row['comment_post_ID'], $pNameMap)) {
+                    mysql_query("update $sourceTablePrefix" . "comments set comment_post_ID=" . $pNameMap[$row['comment_post_ID']] . " where comment_ID=" . $row['comment_ID'], $dbh);
+                    if (mysql_error($dbh)) {
+                        throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+                    }
+                } else { //Otherwise delete the comment because it is associated with a post on the destination which does not exist in the source we're about to deploy
+                    mysql_query("delete from $sourceTablePrefix" . "comments where comment_ID=" . $row['comment_ID'], $dbh);
+                    if (mysql_error($dbh)) {
+                        throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+                    }
+                }
+            }
+            $res11 = mysql_query("SELECT ID FROM $sourceTablePrefix" . "posts", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            while ($row = mysql_fetch_array($res11, MYSQL_ASSOC)) {
+                $res12 = mysql_query("select count(*) as cnt from $sourceTablePrefix" . "comments where comment_post_ID=" . $row['ID'], $dbh);
+                if (mysql_error($dbh)) {
+                    throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+                }
+                $row5 = mysql_fetch_array($res12, MYSQL_ASSOC);
+                mysql_query("update $sourceTablePrefix" . "posts set comment_count=" . $row5['cnt'] . " where ID=" . $row['ID'], $dbh);
+                if (mysql_error($dbh)) {
+                    throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+                }
+            }
+        }
+        if (!$backupDisabled) {
+            if (!mysql_select_db($dbname, $dbh)) {
+                throw new Exception("Could not select database $dbname : " . mysql_error($dbh));
+            }
+            $curdbres = mysql_query("SELECT DATABASE()", $dbh);
+            $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            $res14 = mysql_query("SHOW TABLES", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            $allTables = array();
+            while ($row = mysql_fetch_array($res14, MYSQL_NUM)) {
+                array_push($allTables, $row[0]);
+            }
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            if (!mysql_select_db($backupDatabase, $dbh)) {
+                throw new Exception("Could not select backup database $backupDatabase : " . mysql_error($dbh));
+            }
+            error_log("BACKUPDB: $backupDatabase");
+            $curdbres = mysql_query("select DATABASE()", $dbh);
+            $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
+            ;
+
+            self::emptyDatabase($backupDatabase, $dbh);
+            foreach ($allTables as $t) {
+                #We're taking across all tables including dep_ tables just so we have a backup. We won't deploy dep_ tables though
+                mysql_query("create table $backupDatabase.$t like $dbname.$t", $dbh);
+                if (mysql_error($dbh)) {
+                    throw new Exception("Could not create table $t in backup DB: " . mysql_error($dbh));
+                }
+                mysql_query("INSERT INTO $t SELECT * FROM $dbname.$t", $dbh);
+                if (mysql_error($dbh)) {
+                    throw new Exception("Could not copy table $t from $dbname database: " . mysql_error($dbh));
+                }
+            }
+            mysql_query("create table dep_backupdata (name varchar(20) NOT NULL, val varchar(255) default '')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("INSERT INTO dep_backupdata VALUES ('blogid', '" . $blogid . "')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("INSERT INTO dep_backupdata VALUES ('prefix', '" . $destTablePrefix . "')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("INSERT INTO dep_backupdata VALUES ('deployTime', '" . microtime(true) . "')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("INSERT INTO dep_backupdata VALUES ('deployFrom', '" . $sourceHost . "')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("INSERT INTO dep_backupdata VALUES ('deployTo', '" . $destHost . "')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("INSERT INTO dep_backupdata VALUES ('snapshotName', '" . $name . "')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("INSERT INTO dep_backupdata VALUES ('projectID', '" . $pid . "')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            mysql_query("INSERT INTO dep_backupdata VALUES ('projectName', '" . $proj['name'] . "')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+        }
+
+        if (!mysql_select_db($temporaryDatabase, $dbh)) {
+            throw new Exception("Could not select temporary database $temporaryDatabase : " . mysql_error($dbh));
+        }
+        $curdbres = mysql_query("SELECT DATABASE()", $dbh);
+        $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
+
+        $renames = array();
+        foreach ($this->wpTables as $t) {
+            array_push($renames, "$dbname.$destTablePrefix" . "$t TO $temporaryDatabase.old_$t, $temporaryDatabase.$sourceTablePrefix" . "$t TO $dbname.$destTablePrefix" . $t);
+        }
+        $stime = microtime(true);
+        mysql_query("RENAME TABLE " . implode(", ", $renames), $dbh);
+        $lockTime = sprintf('%.4f', microtime(true) - $stime);
+        if (mysql_error($dbh)) {
+            throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+        }
+        if ($temporaryDatabaseCreated) {
+            mysql_query("DROP DATABASE $temporaryDatabase", $dbh);
+        } else {
+            self::emptyDatabase($temporaryDatabase, $dbh);
+        }
+        if (mysql_error($dbh)) {
+            throw new Exception("A database error occured trying to drop an old temporary database, but the deployment completed. Error was: " . substr(mysql_error($dbh), 0, 200));
+        }
+        if (!$backupDisabled) {
+            self::deleteOldBackupDatabases();
+        }
+        return true;
+        //die(json_encode(array('ok' => 1, 'lockTime' => $lockTime)));
     }
 
 
@@ -771,302 +1248,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     public static function ajax_deploySnapshot_callback()
     {
-        self::checkPerms();
-        global $wpdb;
-        $opt = self::getOptions(true, true);
-        extract($opt, EXTR_OVERWRITE);
-        $pid = $_POST['projectid'];
-        $blogid = $_POST['blogid'];
-        $name = $_POST['name'];
-        $leaveComments = true; //$_POST['leaveComments'];
-
-        if (!preg_match('/\w+/', $name)) {
-            self::ajaxError("Please select a snapshot to deploy.");
-        }
-        $prec = $wpdb->get_results($wpdb->prepare("select * from dep_projects where id=%d and deleted=0", $pid), ARRAY_A);
-        if (sizeof($prec) < 1) {
-            self::ajaxError("That project doesn't exist.");
-        }
-        $proj = $prec[0];
-        $dir = $datadir . $proj['dir'] . '/';
-        $mexists = $wpdb->get_results($wpdb->prepare("select blog_id from dep_members where blog_id=%d and project_id=%d and deleted=0", $blogid, $pid), ARRAY_A);
-        if (sizeof($mexists) < 1) {
-            self::ajaxError("That blog doesn't exist or is not a member of this project. Please select a valid blog to deploy to.");
-        }
-        if (!is_dir($dir)) {
-            self::ajaxError("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
-        }
-        $co1 = self::mexec("$git checkout $name 2>&1", $dir);
-        if (!preg_match('/(?:Switched|Already)/', $co1)) {
-            self::ajaxError("We could not find snapshot $name in the git repository. The error was: $co1");
-        }
-        $destTablePrefix = "";
-        if ($blogid == 1) {
-            $destTablePrefix = $wpdb->base_prefix;
-        } else {
-            $destTablePrefix = $wpdb->base_prefix . $blogid . '_';
-        }
-        $optionsToRestore = array('siteurl', 'home', 'upload_path');
-        if ($opt['preserveBlogName']) {
-            $optionsToRestore[] = 'blogname';
-        }
-        $res3 = $wpdb->get_results($wpdb->prepare("select option_name, option_value from $destTablePrefix" . "options where option_name IN ('" . implode("','", $optionsToRestore) . "')"), ARRAY_A);
-        if (sizeof($res3) < 1) {
-            self::ajaxError("We could not find the data we need for the blog you're trying to deploy to.");
-        }
-        $options = array();
-        for ($i = 0; $i < sizeof($res3); $i++) {
-            $options[$res3[$i]['option_name']] = $res3[$i]['option_value'];
-        }
-
-        // Update the Media folder
-        $files = self::mexec("$rsync -r -d $dir" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogid/");
         
-        $fh = fopen($dir . 'deployData.txt', 'r');
-        $deployData = fread($fh, 100);
-        $depDat = explode(':', $deployData);
-        $sourceTablePrefix = $depDat[0];
-        if (!$sourceTablePrefix) {
-            self::ajaxError("We could not read the table prefix from $dir/deployData.txt");
-        }
-        $dbuser = DB_USER;
-        $dbpass = DB_PASSWORD;
-        $dbhost = DB_HOST;
-        $dbname = DB_NAME;
-        $slurp1 = self::mexec("cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase ", $dir);
-        if (preg_match('/\w+/', $slurp1)) {
-            self::ajaxError("We encountered an error importing the data files from snapshot $name into database $temporaryDatabase $dbuser:$dbpass@$dbhost. The error was: " . substr($slurp1, 0, 1000));
-        }
-        $dbh = mysql_connect($dbhost, $dbuser, $dbpass, true);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        if (!mysql_select_db($temporaryDatabase, $dbh)) {
-            self::ajaxError("Could not select temporary database $temporaryDatabase : " . mysql_error($dbh));
-        }
-        $curdbres = mysql_query("select DATABASE()", $dbh);
-        $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        $destSiteURL = $options['siteurl'];
-        $res4 = mysql_query("select option_value from $sourceTablePrefix" . "options where option_name='siteurl'", $dbh);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        if (!$res4) {
-            self::ajaxError("We could not get the siteurl from the database we're about to deploy. That could mean that we could not create the DB or the import failed.");
-        }
-        $row = mysql_fetch_array($res4, MYSQL_ASSOC);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        if (!$row) {
-            self::ajaxError("We could not get the siteurl from the database we're about to deploy. That could mean that we could not create the DB or the import failed. (2)");
-        }
-        $sourceSiteURL = $row['option_value'];
-        if (!$sourceSiteURL) {
-            self::ajaxError("We could not get the siteurl from the database we're about to deploy. That could mean that we could not create the DB or the import failed. (3)");
-        }
-        $destHost = preg_replace('/^https?:\/\/([^\/]+).*$/i', '$1', $destSiteURL);
-        $sourceHost = preg_replace('/^https?:\/\/([^\/]+).*$/i', '$1', $sourceSiteURL);
-        foreach ($options as $oname => $val) {
-            mysql_query("update $sourceTablePrefix" . "options set option_value='" . mysql_real_escape_string($val) . "' where option_name='" . mysql_real_escape_string($oname) . "'", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-        }
-        $res5 = mysql_query("select ID, post_content, guid from $sourceTablePrefix" . "posts", $dbh);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        while ($row = mysql_fetch_array($res5, MYSQL_ASSOC)) {
-            $content = preg_replace('/(https?:\/\/)' . $sourceHost . '/i', '$1' . $destHost, $row['post_content']);
-            $guid = preg_replace('/(https?:\/\/)' . $sourceHost . '/i', '$1' . $destHost, $row['guid']);
-            mysql_query("update $sourceTablePrefix" . "posts set post_content='" . mysql_real_escape_string($content) . "', guid='" . mysql_real_escape_string($guid) . "' where ID=" . $row['ID'], $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-        }
-
-        mysql_query("UPDATE {$temporaryDatabase}.{$sourceTablePrefix}options SET option_name='{$destTablePrefix}user_roles' WHERE option_name='{$sourceTablePrefix}user_roles'", $dbh);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured while updating the user_roles option in the destination database: " . substr(mysql_error($dbh), 0, 200));
-        }
-
-        if ($leaveComments) {
-            //Delete comments from DB we're deploying
-            mysql_query("delete from $sourceTablePrefix" . "comments", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("delete from $sourceTablePrefix" . "commentmeta", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            //Bring comments across from live (destination) DB
-            mysql_query("insert into $temporaryDatabase.$sourceTablePrefix" . "comments select * from $dbname.$destTablePrefix" . "comments", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into $temporaryDatabase.$sourceTablePrefix" . "commentmeta select * from $dbname.$destTablePrefix" . "commentmeta", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-
-            //Then remap comments to posts based on the "slug" which is the post_name
-            $res6 = mysql_query("select dp.post_name as destPostName, dp.ID as destID, sp.post_name as sourcePostName, sp.ID as sourceID from $dbname.$destTablePrefix" . "posts as dp, $temporaryDatabase.$sourceTablePrefix" . "posts as sp where dp.post_name = sp.post_name", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            if (!$res6) {
-                self::ajaxError("DB error creating maps betweeb post slugs: " . mysql_error($dbh));
-            }
-            $pNameMap = array();
-            while ($row = mysql_fetch_array($res6, MYSQL_ASSOC)) {
-                $pNameMap[$row['destID']] = $row['sourceID'];
-            }
-
-            $res10 = mysql_query("select comment_ID, comment_post_ID from $sourceTablePrefix" . "comments", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            while ($row = mysql_fetch_array($res10, MYSQL_ASSOC)) {
-                //If a post exists in the source with the same slug as the destination, then associate the destination's comments with that post.
-                if (array_key_exists($row['comment_post_ID'], $pNameMap)) {
-                    mysql_query("update $sourceTablePrefix" . "comments set comment_post_ID=" . $pNameMap[$row['comment_post_ID']] . " where comment_ID=" . $row['comment_ID'], $dbh);
-                    if (mysql_error($dbh)) {
-                        self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-                    }
-                } else { //Otherwise delete the comment because it is associated with a post on the destination which does not exist in the source we're about to deploy
-                    mysql_query("delete from $sourceTablePrefix" . "comments where comment_ID=" . $row['comment_ID'], $dbh);
-                    if (mysql_error($dbh)) {
-                        self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-                    }
-                }
-            }
-            $res11 = mysql_query("select ID from $sourceTablePrefix" . "posts", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            while ($row = mysql_fetch_array($res11, MYSQL_ASSOC)) {
-                $res12 = mysql_query("select count(*) as cnt from $sourceTablePrefix" . "comments where comment_post_ID=" . $row['ID'], $dbh);
-                if (mysql_error($dbh)) {
-                    self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-                }
-                $row5 = mysql_fetch_array($res12, MYSQL_ASSOC);
-                mysql_query("update $sourceTablePrefix" . "posts set comment_count=" . $row5['cnt'] . " where ID=" . $row['ID'], $dbh);
-                if (mysql_error($dbh)) {
-                    self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-                }
-            }
-        }
-        if (!$backupDisabled) {
-            if (!mysql_select_db($dbname, $dbh)) {
-                self::ajaxError("Could not select database $dbname : " . mysql_error($dbh));
-            }
-            $curdbres = mysql_query("select DATABASE()", $dbh);
-            $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            $res14 = mysql_query("show tables", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            $allTables = array();
-            while ($row = mysql_fetch_array($res14, MYSQL_NUM)) {
-                array_push($allTables, $row[0]);
-            }
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            if (!mysql_select_db($backupDatabase, $dbh)) {
-                self::ajaxError("Could not select backup database $backupDatabase : " . mysql_error($dbh));
-            }
-            error_log("BACKUPDB: $backupDatabase");
-            $curdbres = mysql_query("select DATABASE()", $dbh);
-            $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
-            ;
-
-            self::emptyDatabase($backupDatabase, $dbh);
-            foreach ($allTables as $t) {
-                #We're taking across all tables including dep_ tables just so we have a backup. We won't deploy dep_ tables though
-                mysql_query("create table $backupDatabase.$t like $dbname.$t", $dbh);
-                if (mysql_error($dbh)) {
-                    self::ajaxError("Could not create table $t in backup DB: " . mysql_error($dbh));
-                }
-                mysql_query("insert into $t select * from $dbname.$t", $dbh);
-                if (mysql_error($dbh)) {
-                    self::ajaxError("Could not copy table $t from $dbname database: " . mysql_error($dbh));
-                }
-            }
-            mysql_query("create table dep_backupdata (name varchar(20) NOT NULL, val varchar(255) default '')", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into dep_backupdata values ('blogid', '" . $blogid . "')", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into dep_backupdata values ('prefix', '" . $destTablePrefix . "')", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into dep_backupdata values ('deployTime', '" . microtime(true) . "')", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into dep_backupdata values ('deployFrom', '" . $sourceHost . "')", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into dep_backupdata values ('deployTo', '" . $destHost . "')", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into dep_backupdata values ('snapshotName', '" . $name . "')", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into dep_backupdata values ('projectID', '" . $pid . "')", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-            mysql_query("insert into dep_backupdata values ('projectName', '" . $proj['name'] . "')", $dbh);
-            if (mysql_error($dbh)) {
-                self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
-        }
-
-        if (!mysql_select_db($temporaryDatabase, $dbh)) {
-            self::ajaxError("Could not select temporary database $temporaryDatabase : " . mysql_error($dbh));
-        }
-        $curdbres = mysql_query("select DATABASE()", $dbh);
-        $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
-
-        $renames = array();
-        foreach (self::$wpTables as $t) {
-            array_push($renames, "$dbname.$destTablePrefix" . "$t TO $temporaryDatabase.old_$t, $temporaryDatabase.$sourceTablePrefix" . "$t TO $dbname.$destTablePrefix" . $t);
-        }
-        $stime = microtime(true);
-        mysql_query("RENAME TABLE " . implode(", ", $renames), $dbh);
-        $lockTime = sprintf('%.4f', microtime(true) - $stime);
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-        }
-        if ($temporaryDatabaseCreated) {
-            mysql_query("drop database $temporaryDatabase", $dbh);
-        } else {
-            self::emptyDatabase($temporaryDatabase, $dbh);
-        }
-        if (mysql_error($dbh)) {
-            self::ajaxError("A database error occured trying to drop an old temporary database, but the deployment completed. Error was: " . substr(mysql_error($dbh), 0, 200));
-        }
-        if (!$backupDisabled) {
-            self::deleteOldBackupDatabases();
-        }
-        die(json_encode(array('ok' => 1, 'lockTime' => $lockTime)));
     }
 
     public static function ajax_updateSnapDesc_callback()

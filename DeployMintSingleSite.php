@@ -75,7 +75,8 @@ class DeployMintSingleSite extends DeployMintAbstract
 
     public function xmlrpcMethods($methods)
     {
-        $methods['deploymint.createSnapshot'] = array($this, 'xmlrpcSnapshot');
+        $methods['deploymint.createSnapshot'] = array($this, 'xmlrpcCreateSnapshot');
+        $methods['deploymint.deploySnapshot'] = array($this, 'xmlrpcDeploySnapshot');
         return $methods;
     }
 
@@ -94,13 +95,31 @@ class DeployMintSingleSite extends DeployMintAbstract
         }
     }
 
-    public function xmlrpcSnapshot($args)
+    public function xmlrpcCreateSnapshot($args)
     {
         $data = $args[2];
 
         try {
             if ($this->xmlrpcAuth($args)) {
                 $this->doSnapshot($data['projectId'], $data['blogId'], $data['name'], $data['desc']);
+            }
+        } catch (Exception $e) {
+            return array(
+                "success"=>false,
+                "error"=>$e->getMessage()
+            );
+        }
+        
+        return array("success"=>true);
+    }
+
+    public function xmlrpcDeploySnapshot($args)
+    {
+        $data = $args[2];
+
+        try {
+            if ($this->xmlrpcAuth($args)) {
+                $this->doDeploySnapshot($data['snapshot'], $data['blogId'], $data['projectId']);
             }
         } catch (Exception $e) {
             return array(
@@ -136,27 +155,13 @@ class DeployMintSingleSite extends DeployMintAbstract
     {
         $valid = parent::createSnapshot($projectId, $blogId, $name, $desc);
         if ($valid) {
-            // TODO: Send XMLRPC request to create snapshot
             $data = array(
                 'projectId' => $projectId,
                 'blogId'    => $blogId,
                 'name'      => $name,
                 'desc'      => $desc,
             );
-            $params = array('admin', 'password', $data);
-            $params = xmlrpc_encode_request('deploymint.createSnapshot', $params);
-            $request = new WP_Http;
-            $result = $request->request('http://dev.parchment.dom/xmlrpc.php',
-                array('method'=>'POST', 'body'=>$params)
-            );
-            if ($result['response']['code'] != 200) {
-                throw new Exception("XML-RPC request to create snapshot failed.");
-            }
-            $response = xmlrpc_decode($result['body']);
-            if (!$response['success']) {
-                throw new Exception('Creation failed. Remote responded with: ' . $response['error']);
-            }
-            return true;
+            return $this->doXmlrpcRequest($data, 'deploymin.createSnapshot');
         } else {
             throw new Exception("Could not create snapshot. Details could not be validated");
         }
@@ -168,8 +173,43 @@ class DeployMintSingleSite extends DeployMintAbstract
         throw new Exception('Snapshot creation is not fully implemented yet');
     }
 
-    protected function deploySnapshot($name)
+    protected function deploySnapshot($snapshot, $blogId, $projectId)
     {
-        // TODO: Send XMLRPC request to deploy snapshot
+        $valid = parent::deploySnapshot($snapshot, $blogId, $projectId);
+        if ($valid) {
+            $data = array(
+                'snapshot'  => $snapshot,
+                'blogId'    => $blogId,
+                'projectId' => $projectId,
+            );
+            return $this->doXmlrpcRequest($data, 'deploymint.deploySnapshot');
+        } else {
+            throw new Exception("Could not deploy snapshot. Details could not be validated");
+        }
+    }
+
+    protected function doXmlrpcRequest($data, $method)
+    {
+        // TODO: Prompt for login details
+        $params = array('admin', 'password', $data);
+        $params = xmlrpc_encode_request($method, $params);
+        $request = new WP_Http;
+
+        // TODO: Real request URL
+        $result = $request->request('http://dev.parchment.dom/xmlrpc.php',
+            array('method'=>'POST', 'body'=>$params)
+        );
+        if ($result['response']['code'] != 200) {
+            throw new Exception("XML-RPC request to create snapshot failed.");
+        }
+        $response = xmlrpc_decode($result['body']);
+        
+        if (!$response) {
+            throw new Exception(print_r($result, true));
+        }
+        if (!$response['success']) {
+            throw new Exception('Creation failed. Remote responded with: ' . $response['error']);
+        }
+        return true;
     }
 }
