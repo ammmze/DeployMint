@@ -10,6 +10,8 @@ class DeployMintSingleSite extends DeployMintAbstract
         add_action('wp_ajax_deploymint_reloadBlogs', array($this, 'actionReloadBlogs'));
         add_action('wp_ajax_deploymint_addBlog', array($this, 'actionAddBlog'));
         add_action('wp_ajax_deploymint_removeBlog', array($this, 'actionRemoveBlog'));
+
+        add_filter('xmlrpc_methods', array($this, 'xmlrpcMethods'));
     }
 
     public function adminMenu()
@@ -71,6 +73,45 @@ class DeployMintSingleSite extends DeployMintAbstract
         
     }
 
+    public function xmlrpcMethods($methods)
+    {
+        $methods['deploymint.createSnapshot'] = array($this, 'xmlrpcSnapshot');
+        return $methods;
+    }
+
+    protected function xmlrpcAuth($args)
+    {
+        $username   = $args[0];
+        $password   = $args[1];
+
+        global $wp_xmlrpc_server;
+
+        // Let's run a check to see if credentials are okay
+        if ( !$user = $wp_xmlrpc_server->login($username, $password) ) {
+            return $wp_xmlrpc_server->error;
+        } else {
+            return true;
+        }
+    }
+
+    public function xmlrpcSnapshot($args)
+    {
+        $data = $args[2];
+
+        try {
+            if ($this->xmlrpcAuth($args)) {
+                $this->doSnapshot($data['projectId'], $data['blogId'], $data['name'], $data['desc']);
+            }
+        } catch (Exception $e) {
+            return array(
+                "success"=>false,
+                "error"=>$e->getMessage()
+            );
+        }
+        
+        return array("success"=>true);
+    }
+
     protected function addBlog($url)
     {
         $this->pdb->insert('dep_blogs', array('blog_url'=>$url));
@@ -89,5 +130,46 @@ class DeployMintSingleSite extends DeployMintAbstract
     protected function getProjectBlogs($project)
     {
         return $this->pdb->get_results($this->pdb->prepare("SELECT dep_blogs.id AS blog_id, dep_blogs.blog_url AS domain FROM dep_members, dep_blogs WHERE dep_members.deleted=0 AND dep_members.project_id=%d AND dep_members.blog_id = dep_blogs.id", $project), ARRAY_A);
+    }
+
+    protected function createSnapshot($projectId, $blogId, $name, $desc)
+    {
+        $valid = parent::createSnapshot($projectId, $blogId, $name, $desc);
+        if ($valid) {
+            // TODO: Send XMLRPC request to create snapshot
+            $data = array(
+                'projectId' => $projectId,
+                'blogId'    => $blogId,
+                'name'      => $name,
+                'desc'      => $desc,
+            );
+            $params = array('admin', 'password', $data);
+            $params = xmlrpc_encode_request('deploymint.createSnapshot', $params);
+            $request = new WP_Http;
+            $result = $request->request('http://dev.parchment.dom/xmlrpc.php',
+                array('method'=>'POST', 'body'=>$params)
+            );
+            if ($result['response']['code'] != 200) {
+                throw new Exception("XML-RPC request to create snapshot failed.");
+            }
+            $response = xmlrpc_decode($result['body']);
+            if (!$response['success']) {
+                throw new Exception('Creation failed. Remote responded with: ' . $response['error']);
+            }
+            return true;
+        } else {
+            throw new Exception("Could not create snapshot. Details could not be validated");
+        }
+    }
+
+    protected function doSnapshot($projectId, $blogId, $name, $desc)
+    {
+        parent::doSnapshot($projectId, $blogId, $name, $desc);
+        throw new Exception('Snapshot creation is not fully implemented yet');
+    }
+
+    protected function deploySnapshot($name)
+    {
+        // TODO: Send XMLRPC request to deploy snapshot
     }
 }

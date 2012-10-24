@@ -56,14 +56,17 @@ abstract class DeployMintAbstract implements DeployMintInterface
         add_action('wp_ajax_deploymint_createProject', array($this, 'actionCreateProject'));
         add_action('wp_ajax_deploymint_deleteProject', array($this, 'actionRemoveProject'));
         add_action('wp_ajax_deploymint_reloadProjects', array($this, 'actionReloadProjects'));
+
         add_action('wp_ajax_deploymint_addBlogToProject', array($this, 'actionAddBlogToProject'));
         add_action('wp_ajax_deploymint_removeBlogFromProject', array($this, 'actionRemoveBlogFromProject'));
 
-        add_action('wp_ajax_deploymint_deploy', 'deploymint::ajax_deploy_callback');
-        add_action('wp_ajax_deploymint_updateCreateSnapshot', 'deploymint::ajax_updateCreateSnapshot_callback');
+        add_action('wp_ajax_deploymint_updateCreateSnapshot', array($this, 'actionGetProjectBlogs'));
+        add_action('wp_ajax_deploymint_createSnapshot', array($this, 'actionCreateSnapshot'));
+
         add_action('wp_ajax_deploymint_updateDeploySnapshot', 'deploymint::ajax_updateDeploySnapshot_callback');
+
+        add_action('wp_ajax_deploymint_deploy', 'deploymint::ajax_deploy_callback');
         add_action('wp_ajax_deploymint_updateSnapDesc', 'deploymint::ajax_updateSnapDesc_callback');
-        add_action('wp_ajax_deploymint_createSnapshot', 'deploymint::ajax_createSnapshot_callback');
         add_action('wp_ajax_deploymint_deploySnapshot', 'deploymint::ajax_deploySnapshot_callback');
         add_action('wp_ajax_deploymint_undoDeploy', 'deploymint::ajax_undoDeploy_callback');
         
@@ -439,6 +442,17 @@ abstract class DeployMintAbstract implements DeployMintInterface
         
     }
 
+    public function actionGetProjectBlogs()
+    {
+        $this->checkPerms();
+        try {
+            $blogs = $this->getProjectBlogs($_REQUEST['projectid']);
+            die(json_encode(array('blogs'=>$blogs)));
+        } catch (Exception $e){
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+    }
+
     protected function createProject($name)
     {
         $this->checkPerms();
@@ -477,9 +491,14 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return true;
     }
 
+    protected function getProject($id)
+    {
+        return $this->pdb->get_results($this->pdb->prepare("SELECT * FROM dep_projects WHERE id=%d AND deleted=0", array($id)), ARRAY_A);
+    }
+
     protected function getProjects()
     {
-        return $this->pdb->get_results($this->pdb->prepare("SELECT id, name FROM dep_projects WHERE deleted=0"), ARRAY_A);
+        return $this->pdb->get_results($this->pdb->prepare("SELECT * FROM dep_projects WHERE deleted=0"), ARRAY_A);
     }
 
     protected function getProjectBlogs($project)
@@ -527,6 +546,51 @@ abstract class DeployMintAbstract implements DeployMintInterface
         // TODO: Check that blog exists?
         $this->pdb->query($this->pdb->prepare("INSERT INTO dep_members (blog_id, project_id) VALUES (%d, %d)", $blogId, $projectId));
         return true;
+    }
+
+    public function actionCreateSnapshot()
+    {
+        $this->checkPerms();
+        try {
+            if ($this->createSnapshot($_REQUEST['projectid'], $_REQUEST['blogid'], $_REQUEST['name'], $_REQUEST['desc'])) {
+                die(json_encode(array('ok' => 1)));
+            }
+        } catch (Exception $e){
+            //$this->ajaxError($e->getMessage());
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+        
+    }
+
+    protected function createSnapshot($projectId, $blogId, $name, $desc)
+    {
+        // Validate name and description
+        if (!preg_match('/\w+/', $name)) {
+            throw new Exception("Please enter a name for this snapshot");
+        }
+        if (strlen($name) > 20) {
+            throw new Exception("Your snapshot name must be 20 characters or less.");
+        }
+        if (preg_match('/[^a-zA-Z0-9\_\-\.]/', $name)) {
+            throw new Exception("Your snapshot name can only contain characters a-z A-Z 0-9 and dashes, underscores and dots.");
+        }
+        if (!$desc) {
+            throw new Exception("Please enter a description for this snapshot.");
+        }
+        $prec = $this->getProject($projectId);
+        if (sizeof($prec) < 1) {
+            throw new Exception("That project doesn't exist.");
+        }
+        return true;
+    }
+
+    protected function doSnapshot($projectId, $blogId, $name, $desc)
+    {
+        // Create branch
+        // Dump tables
+        // Copy images
+        // Copy plugins
+        // Copy themes
     }
 
 
@@ -643,132 +707,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         die(json_encode(array('ok' => 1)));
     }
 
-    public static function ajax_createSnapshot_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $opt = self::getOptions();
-        extract($opt, EXTR_OVERWRITE);
-
-        $pid = $_POST['projectid'];
-        $blogid = $_POST['blogid'];
-        $name = $_POST['name'];
-        $desc = $_POST['desc'];
-        if (!preg_match('/\w+/', $name)) {
-            self::ajaxError("Please enter a name for this snapshot");
-        }
-        if (strlen($name) > 20) {
-            self::ajaxError("Your snapshot name must be 20 characters or less.");
-        }
-        if (preg_match('/[^a-zA-Z0-9\_\-\.]/', $name)) {
-            self::ajaxError("Your snapshot name can only contain characters a-z A-Z 0-9 and dashes, underscores and dots.");
-        }
-        if (!$desc) {
-            self::ajaxError("Please enter a description for this snapshot.");
-        }
-        $prec = $wpdb->get_results($wpdb->prepare("select * from dep_projects where id=%d and deleted=0", $pid), ARRAY_A);
-        if (sizeof($prec) < 1) {
-            self::ajaxError("That project doesn't exist.");
-        }
-        $proj = $prec[0];
-        $dir = $datadir . $proj['dir'] . '/';
-        $mexists = $wpdb->get_results($wpdb->prepare("select blog_id from dep_members where blog_id=%d and project_id=%d and deleted=0", $blogid, $pid), ARRAY_A);
-        if (sizeof($mexists) < 1) {
-            self::ajaxError("That blog doesn't exist or is not a member of this project.");
-        }
-        if (!is_dir($dir)) {
-            self::ajaxError("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
-        }
-        $branchOut = self::mexec("$git branch 2>&1", $dir);
-        if (preg_match('/fatal/', $branchOut)) {
-            self::ajaxError("The directory $dir is not a valid git repository. The output we received is: $branchOut");
-        }
-        $branches = preg_split('/[\r\n\s\t\*]+/', $branchOut);
-        $bdup = array();
-        for ($i = 0; $i < sizeof($branches); $i++) {
-            $bdup[$branches[$i]] = 1;
-        }
-        if (array_key_exists($name, $bdup)) {
-            self::ajaxError("A snapshot with the name $name already exists. Please choose another.");
-        }
-        $cout1 = self::mexec("$git checkout master 2>&1", $dir);
-        //Before we do our initial commit we will get an error trying to checkout master because it doesn't exist.
-        if (!preg_match("/(?:Switched to branch|Already on|error: pathspec 'master' did not match)/", $cout1)) {
-            self::ajaxError("We could not switch the git repository in $dir to 'master'. The output was: $cout1");
-        }
-        $prefix = "";
-        if ($blogid == 1) {
-            $prefix = $wpdb->base_prefix;
-        } else {
-            $prefix = $wpdb->base_prefix . $blogid . '_';
-        }
-        $prefixFile = $dir . 'deployData.txt';
-        $fh2 = fopen($prefixFile, 'w');
-        if (!fwrite($fh2, $prefix . ':' . microtime(true))) {
-            self::ajaxError("We could not write to deployData.txt in the directory $dir");
-        }
-        fclose($fh2);
-        $prefixOut = self::mexec("$git add deployData.txt 2>&1", $dir);
-
-        // Add the Media locations
-        $files = self::mexec("$rsync -r -d " . WP_CONTENT_DIR . "/blogs.dir/$blogid/* $dir" . "blogs.dir/");
-        $filesOut = self::mexec("$git add blogs.dir/ 2>&1", $dir);
-
-        $siteURLRes = $wpdb->get_results($wpdb->prepare("select option_name, option_value from $prefix" . "options where option_name = 'siteurl'"), ARRAY_A);
-        $siteURL = $siteURLRes[0]['option_value'];
-        $desc = "Snapshot of: $siteURL\n" . $desc;
-
-        $dumpErrs = array();
-        foreach (self::$wpTables as $t) {
-            $tableFile = $t . '.sql';
-            $tableName = $prefix . $t;
-            $path = $dir . $tableFile;
-            $dbuser = DB_USER;
-            $dbpass = DB_PASSWORD;
-            $dbhost = DB_HOST;
-            $dbname = DB_NAME;
-            $o1 = self::mexec("$mysqldump --skip-comments --extended-insert --complete-insert --skip-comments -u $dbuser -p$dbpass -h $dbhost $dbname $tableName > $path 2>&1", $dir);
-            if (preg_match('/\w+/', $o1)) {
-                array_push($dumpErrs, $o1);
-            } else {
-
-                $grepOut = self::mexec("grep CREATE $path 2>&1");
-                if (!preg_match('/CREATE/', $grepOut)) {
-                    array_push($dumpErrs, "We could not create a valid table dump file for $tableName");
-                } else {
-                    $gitAddOut = self::mexec("$git add $tableFile 2>&1", $dir);
-                    if (preg_match('/\w+/', $gitAddOut)) {
-                        self::ajaxError("We encountered an error running '$git add $tableFile' the error was: $gitAddOut");
-                    }
-                }
-            }
-        }
-        if (sizeof($dumpErrs) > 0) {
-            $resetOut = self::mexec("$git reset --hard HEAD 2>&1", $dir);
-            if (!preg_match('/HEAD is now at/', $resetOut)) {
-                self::ajaxError("Errors occured during mysqldump and we could not revert the git repository in $dir back to it's original state using '$git reset --hard HEAD'. The output we got was: " . $resetOut);
-            }
-
-            self::ajaxError("Errors occured during mysqldump: " . implode(', ', $dumpErrs));
-        }
-        $tmpfile = $datadir . microtime(true) . '.tmp';
-        $fh = fopen($tmpfile, 'w');
-        fwrite($fh, $desc);
-        fclose($fh);
-        global $current_user;
-        get_currentuserinfo();
-        $commitUser = $current_user->user_firstname . ' ' . $current_user->user_lastname . ' <' . $current_user->user_email . '>';
-        $commitOut2 = self::mexec("$git commit --author=\"$commitUser\" -a -F \"$tmpfile\" 2>&1", $dir);
-        unlink($tmpfile);
-        if (!preg_match('/files changed/', $commitOut2)) {
-            self::ajaxError("git commit failed. The output we got was: $commitOut2");
-        }
-        $brOut2 = self::mexec("$git branch $name 2>&1 ", $dir);
-        if (preg_match('/\w+/', $brOut2)) {
-            self::ajaxError("We encountered an error running '$git branch $name' the output was: $brOut2");
-        }
-        die(json_encode(array('ok' => 1)));
-    }
+    
 
     public static function ajax_undoDeploy_callback()
     {
@@ -1198,16 +1137,6 @@ abstract class DeployMintAbstract implements DeployMintInterface
                     'blogs' => $blogs,
                     'snapshots' => $snapshots
                 )));
-    }
-
-    public static function ajax_updateCreateSnapshot_callback()
-    {
-        self::checkPerms();
-        global $wpdb;
-        $pid = $_POST['projectid'];
-        $blogsTable = $wpdb->base_prefix . 'blogs';
-        $blogs = $wpdb->get_results($wpdb->prepare("select $blogsTable.blog_id as blog_id, $blogsTable.domain as domain, $blogsTable.path as path from dep_members, $blogsTable where dep_members.blog_id = $blogsTable.blog_id and dep_members.project_id = %d and dep_members.deleted=0", $pid), ARRAY_A);
-        die(json_encode(array('blogs' => $blogs)));
     }
 
     public static function ajax_deploy_callback()

@@ -238,7 +238,7 @@ window['deploymint'] = {
     createSnapshot: function(projectid, blogid, name, desc){
         var self = this;
         jQuery.ajax({
-            type: "POST",
+            type: "GET",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: {
@@ -376,7 +376,7 @@ window['deploymint'] = {
 
     updateCreateSnapshot: function(projectid){
         jQuery.ajax({
-            type: "POST",
+            type: "GET",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: {
