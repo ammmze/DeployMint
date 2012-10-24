@@ -211,13 +211,12 @@ class DeployMintSingleSite extends DeployMintAbstract
         }
         $response = xmlrpc_decode($result['body']);
         
-        if (!$response) {
+        if (!is_array($response)) {
             throw new Exception(print_r($result, true));
         }
-        if (is_array($response) && xmlrpc_is_fault($response)) {
+        if (xmlrpc_is_fault($response)) {
             throw new Exception($response['faultString'], $response['faultCode']);
         }
-
         if (!$response['success']) {
             throw new Exception('Request failed. Remote responded with: ' . $response['error']);
         }
