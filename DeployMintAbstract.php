@@ -1216,18 +1216,14 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         $this->checkPerms();
         $defaultOptions = $this->getDefaultOptions();
-        $git = trim($_POST['git']);
-        $mysql = trim($_POST['mysql']);
-        $mysqldump = trim($_POST['mysqldump']);
-        $rsync = trim($_POST['rsync']);
-        $datadir = trim($_POST['datadir']);
+        $opt = array_merge($this->getOptions(), $_POST);
+        foreach($opt as $key=>$value) {
+            $opt[$key] = trim($value);
+        }
+        extract($opt, EXTR_OVERWRITE);
         if (!preg_match('/\/$/', $datadir)) {
             $datadir .= '/';
         }
-        $numBackups = trim($_POST['numBackups']);
-        $temporaryDatabase = trim($_POST['temporaryDatabase']);
-        $backupDisabled = trim($_POST['backupDisabled']) != '' ? 1 : 0;
-        $backupDatabase = trim($_POST['backupDatabase']);
         $errs = array();
         if (!($git && $mysql && $mysqldump && $rsync && $datadir)) {
             $errs[] = "You must specify a value for all options.";
