@@ -526,6 +526,12 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return $availableBlogs;
     }
 
+    protected function getBlog($id)
+    {
+        $blogsTable = $this->pdb->base_prefix . 'blogs';
+        return $this->pdb->get_row($this->pdb->prepare("SELECT * FROM $blogsTable WHERE blog_id = %d ORDER BY domain ASC", array($id)), ARRAY_A);
+    }
+
     protected function getBlogs()
     {
         $blogsTable = $this->pdb->base_prefix . 'blogs';
@@ -588,6 +594,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function doSnapshot($projectId, $blogId, $name, $desc)
     {
+        $this->checkPerms();
         $opt = $this->getOptions();
         extract($opt, EXTR_OVERWRITE);
         $proj = $this->getProject($projectId);
@@ -678,7 +685,12 @@ abstract class DeployMintAbstract implements DeployMintInterface
         fclose($fh);
         global $current_user;
         get_currentuserinfo();
-        $commitUser = $current_user->user_firstname . ' ' . $current_user->user_lastname . ' <' . $current_user->user_email . '>';
+        
+        $user_name = trim($current_user->user_firstname . ' ' . $current_user->user_lastname);
+        if ($user_name == '') {
+            $user_name = $current_user->display_name || 'unknown';
+        }
+        $commitUser = $user_name . ' <' . $current_user->user_email . '>';
         $commitOut2 = $this->mexec("$git commit --author=\"$commitUser\" -a -F \"$tmpfile\" 2>&1", $dir);
         unlink($tmpfile);
         if (!preg_match('/files changed/', $commitOut2)) {
@@ -769,6 +781,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function doDeploySnapshot($name, $blogid, $pid)
     {
+        $this->checkPerms();
         $opt = $this->getOptions(true, true);
         extract($opt, EXTR_OVERWRITE);
         $leaveComments = true; //$_POST['leaveComments'];
