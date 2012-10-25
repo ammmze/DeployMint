@@ -69,6 +69,9 @@ abstract class DeployMintAbstract implements DeployMintInterface
         
         add_action('wp_ajax_deploymint_deleteBackups', array($this, 'ajax_deleteBackups_callback'));
         add_action('wp_ajax_deploymint_updateOptions', array($this, 'ajax_updateOptions_callback'));
+
+        $opt = $this->getOptions();
+        DeployMintProjectTools::setGit($opt['git']);
         
     }
 
@@ -764,8 +767,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!is_dir($dir)) {
             throw new Exception("The directory $dir for this project does not exist.");
         }
-        $bOut = $this->mexec("$git branch 2>&1", $dir);
-        $branches = preg_split('/[\r\n\s\t\*]+/', $bOut);
+        $fetch = DeployMintProjectTools::fetch($dir);
+        $branches = DeployMintProjectTools::getAllBranches($dir);
         $snapshots = array();
         for ($i = 0; $i < sizeof($branches); $i++) {
             if (preg_match('/\w+/', $branches[$i])) {
@@ -839,7 +842,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!is_dir($dir)) {
             throw new Exception("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
         }
-        $this->mexec("$git fetch origin ; $git checkout -t origin/$name 2>&1", $dir);
+        $co0 = $this->mexec("$git fetch origin ; $git checkout -t origin/$name 2>&1", $dir);
         $co1 = $this->mexec("$git checkout $name 2>&1", $dir);
         if (!preg_match('/(?:Switched|Already)/', $co1)) {
             throw new Exception("We could not find snapshot $name in the git repository. The error was: $co1");
