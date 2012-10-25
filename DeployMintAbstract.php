@@ -854,7 +854,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if ($opt['preserveBlogName']) {
             $optionsToRestore[] = 'blogname';
         }
-        $res3 = $this->pdb->get_results($this->pdb->prepare("SELECT option_name, option_value FROM $destTablePrefix" . "options WHERE option_name IN ('" . implode("','", $optionsToRestore) . "')"), ARRAY_A);
+        $res3 = $this->pdb->get_results($this->pdb->prepare("SELECT option_name, option_value FROM {$destTablePrefix}options WHERE option_name IN ('" . implode("','", $optionsToRestore) . "')"), ARRAY_A);
         if (sizeof($res3) < 1) {
             throw new Exception("We could not find the data we need for the blog you're trying to deploy to.");
         }
@@ -894,7 +894,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
         }
         $destSiteURL = $options['siteurl'];
-        $res4 = mysql_query("SELECT option_value FROM $sourceTablePrefix" . "options WHERE option_name='siteurl'", $dbh);
+        $res4 = mysql_query("SELECT option_value FROM {$sourceTablePrefix}options WHERE option_name='siteurl'", $dbh);
         if (mysql_error($dbh)) {
             throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
         }
@@ -915,12 +915,12 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $destHost = preg_replace('/^https?:\/\/([^\/]+.*)$/i', '$1', $destSiteURL);
         $sourceHost = preg_replace('/^https?:\/\/([^\/]+.*)$/i', '$1', $sourceSiteURL);
         foreach ($options as $oname => $val) {
-            mysql_query("UPDATE $sourceTablePrefix" . "options set option_value='" . mysql_real_escape_string($val) . "' WHERE option_name='" . mysql_real_escape_string($oname) . "'", $dbh);
+            mysql_query("UPDATE {$sourceTablePrefix}options set option_value='" . mysql_real_escape_string($val) . "' WHERE option_name='" . mysql_real_escape_string($oname) . "'", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
         }
-        $res5 = mysql_query("SELECT ID, post_content, guid FROM $sourceTablePrefix" . "posts", $dbh);
+        $res5 = mysql_query("SELECT ID, post_content, guid FROM {$sourceTablePrefix}posts", $dbh);
         if (mysql_error($dbh)) {
             throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
         }
@@ -937,26 +937,26 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
         if ($leaveComments) {
             //Delete comments from DB we're deploying
-            mysql_query("delete from $sourceTablePrefix" . "comments", $dbh);
+            mysql_query("DELETE FROM {$sourceTablePrefix}comments", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
-            mysql_query("delete from $sourceTablePrefix" . "commentmeta", $dbh);
+            mysql_query("DELETE FROM {$sourceTablePrefix}commentmeta", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
             //Bring comments across from live (destination) DB
-            mysql_query("insert into $temporaryDatabase.$sourceTablePrefix" . "comments select * from $dbname.$destTablePrefix" . "comments", $dbh);
+            mysql_query("INSERT INTO $temporaryDatabase.{$sourceTablePrefix}comments SELECT * FROM $dbname.{$destTablePrefix}comments", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
-            mysql_query("insert into $temporaryDatabase.$sourceTablePrefix" . "commentmeta select * from $dbname.$destTablePrefix" . "commentmeta", $dbh);
+            mysql_query("INSERT INTO $temporaryDatabase.{$sourceTablePrefix}commentmeta SELECT * FROM $dbname.{$destTablePrefix}commentmeta", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
 
             //Then remap comments to posts based on the "slug" which is the post_name
-            $res6 = mysql_query("select dp.post_name as destPostName, dp.ID as destID, sp.post_name as sourcePostName, sp.ID as sourceID from $dbname.$destTablePrefix" . "posts as dp, $temporaryDatabase.$sourceTablePrefix" . "posts as sp where dp.post_name = sp.post_name", $dbh);
+            $res6 = mysql_query("SELECT dp.post_name AS destPostName, dp.ID AS destID, sp.post_name AS sourcePostName, sp.ID AS sourceID FROM $dbname.{$destTablePrefix}posts AS dp, $temporaryDatabase.{$sourceTablePrefix}posts AS sp WHERE dp.post_name = sp.post_name", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
@@ -968,35 +968,35 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 $pNameMap[$row['destID']] = $row['sourceID'];
             }
 
-            $res10 = mysql_query("select comment_ID, comment_post_ID from $sourceTablePrefix" . "comments", $dbh);
+            $res10 = mysql_query("SELECT comment_ID, comment_post_ID FROM {$sourceTablePrefix}comments", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
             while ($row = mysql_fetch_array($res10, MYSQL_ASSOC)) {
                 //If a post exists in the source with the same slug as the destination, then associate the destination's comments with that post.
                 if (array_key_exists($row['comment_post_ID'], $pNameMap)) {
-                    mysql_query("update $sourceTablePrefix" . "comments set comment_post_ID=" . $pNameMap[$row['comment_post_ID']] . " where comment_ID=" . $row['comment_ID'], $dbh);
+                    mysql_query("UPDATE $sourceTablePrefix" . "comments set comment_post_ID=" . $pNameMap[$row['comment_post_ID']] . " WHERE comment_ID=" . $row['comment_ID'], $dbh);
                     if (mysql_error($dbh)) {
                         throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
                     }
                 } else { //Otherwise delete the comment because it is associated with a post on the destination which does not exist in the source we're about to deploy
-                    mysql_query("delete from $sourceTablePrefix" . "comments where comment_ID=" . $row['comment_ID'], $dbh);
+                    mysql_query("DELETE FROM {$sourceTablePrefix}comments WHERE comment_ID=" . $row['comment_ID'], $dbh);
                     if (mysql_error($dbh)) {
                         throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
                     }
                 }
             }
-            $res11 = mysql_query("SELECT ID FROM $sourceTablePrefix" . "posts", $dbh);
+            $res11 = mysql_query("SELECT ID FROM {$sourceTablePrefix}posts", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
             while ($row = mysql_fetch_array($res11, MYSQL_ASSOC)) {
-                $res12 = mysql_query("select count(*) as cnt from $sourceTablePrefix" . "comments where comment_post_ID=" . $row['ID'], $dbh);
+                $res12 = mysql_query("SELECT count(*) AS cnt FROM {$sourceTablePrefix}comments WHERE comment_post_ID=" . $row['ID'], $dbh);
                 if (mysql_error($dbh)) {
                     throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
                 }
                 $row5 = mysql_fetch_array($res12, MYSQL_ASSOC);
-                mysql_query("update $sourceTablePrefix" . "posts set comment_count=" . $row5['cnt'] . " where ID=" . $row['ID'], $dbh);
+                mysql_query("UPDATE {$sourceTablePrefix}posts set comment_count=" . $row5['cnt'] . " WHERE ID=" . $row['ID'], $dbh);
                 if (mysql_error($dbh)) {
                     throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
                 }
@@ -1033,7 +1033,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $this->emptyDatabase($backupDatabase, $dbh);
             foreach ($allTables as $t) {
                 #We're taking across all tables including dep_ tables just so we have a backup. We won't deploy dep_ tables though
-                mysql_query("create table $backupDatabase.$t like $dbname.$t", $dbh);
+                mysql_query("CREATE TABLE $backupDatabase.$t LIKE $dbname.$t", $dbh);
                 if (mysql_error($dbh)) {
                     throw new Exception("Could not create table $t in backup DB: " . mysql_error($dbh));
                 }
@@ -1042,7 +1042,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                     throw new Exception("Could not copy table $t from $dbname database: " . mysql_error($dbh));
                 }
             }
-            mysql_query("create table dep_backupdata (name varchar(20) NOT NULL, val varchar(255) default '')", $dbh);
+            mysql_query("CREATE TABLE dep_backupdata (name varchar(20) NOT NULL, val varchar(255) default '')", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
@@ -1088,7 +1088,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
         $renames = array();
         foreach ($this->wpTables as $t) {
-            array_push($renames, "$dbname.$destTablePrefix" . "$t TO $temporaryDatabase.old_$t, $temporaryDatabase.$sourceTablePrefix" . "$t TO $dbname.$destTablePrefix" . $t);
+            array_push($renames, "$dbname.{$destTablePrefix}$t TO $temporaryDatabase.old_$t, $temporaryDatabase.{$sourceTablePrefix}$t TO $dbname.$destTablePrefix" . $t);
         }
         $stime = microtime(true);
         mysql_query("RENAME TABLE " . implode(", ", $renames), $dbh);
@@ -1151,8 +1151,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
         $t_fromPosts = $fromPrefix . 'posts';
         $t_toPosts = $toPrefix . 'posts';
-        $fromPostTotal = $this->pdb->get_results($this->pdb->prepare("SELECT count(*) as cnt FROM $t_fromPosts WHERE post_status='publish'", $fromid), ARRAY_A);
-        $toPostTotal = $this->pdb->get_results($this->pdb->prepare("SELECT count(*) as cnt FROM $t_toPosts WHERE post_status='publish'", $toid), ARRAY_A);
+        $fromPostTotal = $this->pdb->get_results($this->pdb->prepare("SELECT count(*) AS cnt FROM $t_fromPosts WHERE post_status='publish'", $fromid), ARRAY_A);
+        $toPostTotal = $this->pdb->get_results($this->pdb->prepare("SELECT count(*) AS cnt FROM $t_toPosts WHERE post_status='publish'", $toid), ARRAY_A);
         $fromNewestPost = $this->pdb->get_results($this->pdb->prepare("SELECT post_title FROM $t_fromPosts WHERE post_status='publish' ORDER BY post_modified DESC LIMIT 1", $fromid), ARRAY_A);
         $toNewestPost = $this->pdb->get_results($this->pdb->prepare("SELECT post_title FROM $t_toPosts WHERE post_status='publish' ORDER BY post_modified DESC LIMIT 1", $toid), ARRAY_A);
         die(json_encode(array(
