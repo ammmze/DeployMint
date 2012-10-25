@@ -137,14 +137,15 @@ window['deploymint'] = {
             });
 
     },
-    createProject: function(name){
+    createProject: function(name, origin){
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: {
                 action: "deploymint_createProject",
-                name: name
+                name: name,
+                origin: origin || ''
                 },
             success: function(resp){
                 if(resp.err){

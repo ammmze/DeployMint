@@ -11,9 +11,14 @@
     <table class="form-table deploymintTable">
     <tr>
         <td>Enter the name of a project to create:</td>
-        <td><input type="text" id="sdProjectName" value="" size="15" maxlength="15" /></td>
-
-        <td><input type="button" name="but2" value="Create a new project" onclick="deploymint.createProject(jQuery('#sdProjectName').val()); return false;" class="button-primary" /></td>
+        <td><input type="text" id="sdProjectName" value="" size="55" maxlength="100" /></td>
+    </tr>
+    <tr>
+        <td>Git Origin Location:</td>
+        <td><input type="text" id="sdProjectOrigin" value="" size="55" maxlength="255" /></td>
+    </tr>
+    <tr>
+        <td colspan=2><input type="button" name="but2" value="Create project" onclick="deploymint.createProject(jQuery('#sdProjectName').val(),jQuery('#sdProjectOrigin').val()); return false;" class="button-primary" /></td>
     </tr>
     </table>
     </p>

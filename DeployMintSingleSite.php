@@ -177,7 +177,7 @@ class DeployMintSingleSite extends DeployMintAbstract
         // Check if project exists
         if (!$this->projectExists($project['name'])) {
             // Create project
-            $this->createProject($project['name']);
+            $this->createProject($project['name'], $project['origin']);
         }
 
         $myProject = $this->getProjectByName($project['name']);
@@ -291,7 +291,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 }
                 $this->doXmlrpcRequest($data, 'deploymint.addUpdateProject', $blog['blog_url'] . '/xmlrpc.php');
             } catch (Exception $e) {
-                echo $e->getMessage();
+                //echo $e->getMessage();
             }
             
         }

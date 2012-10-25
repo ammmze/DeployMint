@@ -86,6 +86,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             ctime int UNSIGNED NOT NULL,
             name varchar(100) NOT NULL,
             dir varchar(120) NOT NULL,
+            origin varchar(255) NOT NULL,
             deleted tinyint UNSIGNED default 0
         ) default charset=utf8");
         if (!$success) {
@@ -366,8 +367,9 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         $this->checkPerms();
         $name = $_POST['name'];
+        $origin = $_POST['origin'];
         try {
-            if ($this->createProject($name)) {
+            if ($this->createProject($name, $origin)) {
                 die(json_encode(array('ok' => 1)));
             }
         } catch (Exception $e) {
@@ -451,7 +453,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return sizeof($result) > 0;
     }
 
-    protected function createProject($name)
+    protected function createProject($name, $origin)
     {
         $this->checkPerms();
         $opt = $this->getOptions();
@@ -477,7 +479,10 @@ abstract class DeployMintAbstract implements DeployMintInterface
             throw new Exception('Could not create directory ' . $finaldir);
         }
         $git1 = $this->mexec("$git init ; $git add . ", $finaldir);
-        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir) VALUES (unix_timestamp(), %s, %s)", $name, $fulldir));
+        if (strlen($origin) > 0) {
+            $this->mexec("$git remote add origin $origin ; $git fetch origin", $finaldir);
+        }
+        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir, origin) VALUES (unix_timestamp(), %s, %s, %s)", $name, $fulldir, $origin));
         return true;
     }
 
@@ -834,6 +839,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!is_dir($dir)) {
             throw new Exception("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
         }
+        $this->mexec("$git fetch origin ; $git checkout -t origin/$name 2>&1", $dir);
         $co1 = $this->mexec("$git checkout $name 2>&1", $dir);
         if (!preg_match('/(?:Switched|Already)/', $co1)) {
             throw new Exception("We could not find snapshot $name in the git repository. The error was: $co1");
