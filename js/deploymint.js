@@ -9,6 +9,24 @@ window['deploymint'] = {
     init: function(){
         jQuery('#sdAjaxLoading').hide().ajaxStart(function(){ jQuery(this).show(); }).ajaxStop(function(){ jQuery(this).hide(); });
     },
+    alertModal : null,
+    alert : function(message) {
+        if (this.alertModal == null) {
+            var d = jQuery("#DeployMint-Alert");
+            d.easyModal({
+                onOpen : function(modal){
+                    jQuery(":input:first", modal).focus();
+                    jQuery("[name='close']", modal).unbind('click').bind('click',function(){
+                        d.trigger('closeModal');
+                    });
+                },
+                onClose : function(modal){}
+            })
+            this.alertModal = d;
+        }
+        this.alertModal.find('.message').html(message);
+        this.alertModal.trigger('openModal');
+    },
     updateOptions: function(data){
         var self = this;
         jQuery('#sdOptErrors').hide();
@@ -46,20 +64,17 @@ window['deploymint'] = {
     addOptError: function(err, isError){
         jQuery('#sdOptErrors').append('<div class="' + (isError ? 'error' : 'updated') + ' sdOptErrWrap"><p><strong>' + err + '</strong></p></div>');
     },
-    addBlogToProject: function(projectID, blogID){
+    addBlogToProject: function(data){
         var self = this;
+        data.action = "deploymint_addBlogToProject";
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
-            data: {
-                action: "deploymint_addBlogToProject",
-                projectID: projectID,
-                blogID: blogID
-                },
+            data: data,
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 self.reloadProjects();
@@ -68,6 +83,24 @@ window['deploymint'] = {
             });
 
     },  
+    removeBlogFromProject: function(data){
+        data.action = "deploymint_removeBlogFromProject";
+        jQuery.ajax({
+            type: "POST",
+            url: DeployMintVars.ajaxURL,
+            dataType: "json",
+            data: data,
+            success: function(resp){
+                if(resp.err){
+                    self.alert(resp.err);
+                    return;
+                }
+                deploymint.reloadProjects();
+            },
+            error: function(){}
+            });
+
+    },
     deleteBackups: function(delArr){
         if(confirm("Are you 100% sure you want to delete the selected backups? This can't be undone.")){
         jQuery.ajax({
@@ -80,7 +113,7 @@ window['deploymint'] = {
                 },
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 //deploymint.reloadProjects();
@@ -93,6 +126,7 @@ window['deploymint'] = {
 
     },
     deleteProject: function(projectID){
+        var self = this;
         if(confirm("Are you 100% sure you want to delete this project? This can't be undone.")){
         jQuery.ajax({
             type: "POST",
@@ -104,7 +138,7 @@ window['deploymint'] = {
                 },
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 //deploymint.reloadProjects();
@@ -116,28 +150,8 @@ window['deploymint'] = {
         }
 
     },
-    removeBlogFromProject: function(projectID, blogID){
-        jQuery.ajax({
-            type: "POST",
-            url: DeployMintVars.ajaxURL,
-            dataType: "json",
-            data: {
-                action: "deploymint_removeBlogFromProject",
-                projectID: projectID,
-                blogID: blogID
-                },
-            success: function(resp){
-                if(resp.err){
-                    alert(resp.err);
-                    return;
-                }
-                deploymint.reloadProjects();
-            },
-            error: function(){}
-            });
-
-    },
     createProject: function(name, origin){
+        var self = this;
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -149,7 +163,7 @@ window['deploymint'] = {
                 },
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 //deploymint.reloadProjects();
@@ -159,6 +173,7 @@ window['deploymint'] = {
             });
     },
     reloadProjects: function(){
+        var self = this;
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -168,7 +183,7 @@ window['deploymint'] = {
                 },
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 jQuery('#sdProjects').empty();
@@ -218,6 +233,7 @@ window['deploymint'] = {
 
     },
     reloadBlogs: function(){
+        var self = this;
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -227,7 +243,7 @@ window['deploymint'] = {
                 },
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 jQuery('#sdBlogs').empty();
@@ -240,26 +256,21 @@ window['deploymint'] = {
 
 
     },
-    createSnapshot: function(projectid, blogid, name, desc){
+    createSnapshot: function(data){
         var self = this;
+        data.action = "deploymint_createSnapshot";
         jQuery.ajax({
             type: "GET",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
-            data: {
-                action: "deploymint_createSnapshot",
-                projectid: projectid,
-                blogid: blogid,
-                name: name,
-                desc: desc
-                },
+            data: data,
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 if(! resp.ok){
-                    alert("An unknown error occurred taking your snapshot.");
+                    self.alert("An unknown error occurred taking your snapshot.");
                     return;
                 }
                 self.updateDeploySnapshot(projectid, name);
@@ -268,27 +279,23 @@ window['deploymint'] = {
             });
 
     },
-    deploySnapshot: function(projectid, blogid, name){
+    deploySnapshot: function(data){
         var self = this;
+        data.action = "deploymint_deploySnapshot";
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
-            data: {
-                action: "deploymint_deploySnapshot",
-                projectid: projectid,
-                blogid: blogid,
-                name: name
-                },
+            data: data,
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 if(resp.ok){
-                    alert("Deployed succesfully. The total time the database was locked was " + resp.lockTime + " seconds.");
+                    self.alert("Deployed succesfully. The total time the database was locked was " + resp.lockTime + " seconds.");
                 } else {
-                    alert("An unknown error occurred taking your snapshot.");
+                    self.alert("An unknown error occurred taking your snapshot.");
                     return;
                 }
             },
@@ -311,17 +318,17 @@ window['deploymint'] = {
                 },
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     window.location.reload(false);
 
                     return;
                 }
                 if(resp.ok){
-                    alert("The Wordpress installation was sucessfully reverted.");
+                    self.alert("The Wordpress installation was sucessfully reverted.");
                     window.location.reload(false);
                     return;
                 } else {
-                    alert("An unknown error occurred trying to revert your wordpress installation.");
+                    self.alert("An unknown error occurred trying to revert your wordpress installation.");
                     window.location.reload(false);
                     return;
                 }
@@ -332,6 +339,7 @@ window['deploymint'] = {
     },
 
     updateDeploySnapshot: function(projectid, selectedSnap){
+        var self = this;
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -342,7 +350,7 @@ window['deploymint'] = {
                 },
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 jQuery('#sdDeploySnapshot').empty();
@@ -355,6 +363,7 @@ window['deploymint'] = {
 
     },
     updateSnapDesc: function(projectid, snapname){
+        var self = this;
         if(! snapname){ return; }
         jQuery.ajax({
             type: "POST",
@@ -367,7 +376,7 @@ window['deploymint'] = {
                 },
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 jQuery('#sdSnapDesc2').empty();
@@ -380,6 +389,7 @@ window['deploymint'] = {
 
 
     updateCreateSnapshot: function(projectid){
+        var self = this;
         jQuery.ajax({
             type: "GET",
             url: DeployMintVars.ajaxURL,
@@ -390,7 +400,7 @@ window['deploymint'] = {
                 },
             success: function(resp){
                 if(resp.err){
-                    alert(resp.err);
+                    self.alert(resp.err);
                     return;
                 }
                 jQuery('#sdCreateSnapshot').empty();

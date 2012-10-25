@@ -4,6 +4,7 @@
     Author website: http://markmaunder.com/
     License: GPL 3.0
 */
+include dirname(__FILE__) . '/widgets.php';
 ?>
 <div id="sdAjaxLoading" style="display: none; position: fixed; right: 1px; top: 1px; width: 100px; background-color: #F00; color: #FFF; font-size: 12px; font-family: Verdana, arial; font-weight: normal; text-align: center; z-index: 100; border: 1px solid #CCC;">Loading...</div>
 <div class="wrap">
@@ -40,12 +41,12 @@
     {{else}}
     <option value="">--No blogs left to add--</option>
     {{/if}}
-    </select>&nbsp;<input type="button" name="but12" value="Add this blog to the project" onclick="deploymint.addBlogToProject(${proj.id}, jQuery('#projAddSel${proj.id}').val()); return false;" />
+    </select>&nbsp;<input type="button" name="but12" value="Add this blog to the project" onclick="deploymint.addBlogToProject({projectID:${proj.id}, blogID:jQuery('#projAddSel${proj.id}').val()}); return false;" />
     <h3 class="depSmallHead">Blogs that are part of this project:</h3>
     {{if proj.memberBlogs.length}}
     <ul class="depList">
         {{each(l,blog) proj.memberBlogs}}
-        <li>${blog.domain}${blog.path}&nbsp;<a href="#" onclick="deploymint.removeBlogFromProject(${proj.id}, ${blog.blog_id}); return false;" style="font-size: 10px;">remove</a></li>
+        <li>${blog.domain}${blog.path}&nbsp;<a href="#" onclick="deploymint.removeBlogFromProject({projectID:${proj.id}, blogID:${blog.blog_id}}); return false;" style="font-size: 10px;">remove</a></li>
         {{/each}}
     </ul>
     {{else}}

@@ -4,6 +4,7 @@
     Author website: http://markmaunder.com/
     License: GPL 3.0
 */
+include dirname(__FILE__) . '/widgets.php';
 ?>
 
 <div id="sdAjaxLoading" style="display: none; position: fixed; right: 1px; top: 1px; width: 100px; background-color: #F00; color: #FFF; font-size: 12px; font-family: Verdana, arial; font-weight: normal; text-align: center; z-index: 100; border: 1px solid #CCC;">Loading...</div>

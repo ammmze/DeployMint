@@ -62,3 +62,9 @@ table.deploymint-blogs th,
 table.deploymint-blogs td{
     padding: 3px 5px;
 }
+
+.DeployMint-Modal {
+    background: #FFF;
+    width: 260px;
+    padding: 20px;
+}

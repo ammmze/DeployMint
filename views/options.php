@@ -4,6 +4,7 @@
     Author website: http://markmaunder.com/
     License: GPL 3.0
 */
+include dirname(__FILE__) . '/widgets.php';
 ?>
 
 <script>

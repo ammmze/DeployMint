@@ -4,6 +4,7 @@
     Author website: http://markmaunder.com/
     License: GPL 3.0
 */
+include dirname(__FILE__) . '/widgets.php';
 ?>
 
 <div id="sdAjaxLoading" style="display: none; position: fixed; right: 1px; top: 1px; width: 100px; background-color: #F00; color: #FFF; font-size: 12px; font-family: Verdana, arial; font-weight: normal; text-align: center; z-index: 100; border: 1px solid #CCC;">Loading...</div>
@@ -48,7 +49,7 @@
     </td>
 </tr>
 <tr><td colspan="2">
-    <input type="button" value="Deploy this snapshot to the selected blog" onclick="deploymint.deploySnapshot(projectid, jQuery('#sdDepBlog').val(), jQuery('#sdDepSnapshot').val()); return false;" class="button-primary" />
+    <input type="button" value="Deploy this snapshot to the selected blog" onclick="deploymint.deploySnapshot({projectid:projectid, blogid:jQuery('#sdDepBlog').val(), name:jQuery('#sdDepSnapshot').val()}); return false;" class="button-primary" />
 </td></tr>
 </table>
 </script>
@@ -77,7 +78,7 @@
     <td><textarea id="sdSnapDesc" rows="5" cols="60"></textarea></td>
 </tr>
 <tr><td colspan="2">
-    <input type="button" value="Create this snapshot" onclick="deploymint.createSnapshot(projectid, jQuery('#sdSnapBlog').val(), jQuery('#sdSnapName').val(), jQuery('#sdSnapDesc').val()); return false;" class="button-primary" />
+    <input type="button" value="Create this snapshot" onclick="deploymint.createSnapshot({projectid:projectid, blogid:jQuery('#sdSnapBlog').val(), name:jQuery('#sdSnapName').val(), desc:jQuery('#sdSnapDesc').val()}); return false;" class="button-primary" />
 </td></tr>
 </table>
 </script>

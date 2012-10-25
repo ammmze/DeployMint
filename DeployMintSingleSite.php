@@ -40,6 +40,14 @@ class DeployMintSingleSite extends DeployMintAbstract
         add_submenu_page(self::PAGE_INDEX, "Help", "Help", 'manage_options', self::PAGE_HELP, array($this, 'actionHelp'));
     }
 
+    public function initHandler()
+    {
+        parent::initHandler();
+        if (is_admin()) {
+            wp_enqueue_script('deploymint-ss-js', plugin_dir_url(__FILE__) . 'js/deploymint.ss.js', array('jquery'));
+        }
+    }
+
     public function actionAddBlog()
     {
         $this->checkPerms();
@@ -242,7 +250,7 @@ class DeployMintSingleSite extends DeployMintAbstract
         return $this->pdb->get_results($this->pdb->prepare("SELECT *, dep_blogs.id AS blog_id, dep_blogs.blog_url AS domain FROM dep_members, dep_blogs WHERE dep_members.deleted=0 AND dep_blogs.deleted=0 AND dep_members.project_id=%d AND dep_members.blog_id = dep_blogs.id", $projectId), ARRAY_A);
     }
 
-    protected function removeBlogFromProject($blogId, $projectId)
+    protected function removeBlogFromProject($blogId, $projectId, $username=null, $password=null)
     {
         // Get blog id's, prior to removing it, so that we can notify the removed blog, itself from the project
         $blogs = $this->getProjectBlogsIds($projectId);
@@ -251,11 +259,11 @@ class DeployMintSingleSite extends DeployMintAbstract
         parent::removeBlogFromProject($blogId, $projectId);
 
         // Notify blogs that the project has changed
-        $this->updateBlogsWithProject($blogs, $projectId);
+        $this->updateBlogsWithProject($blogs, $projectId, $username, $password);
         return true;
     }
 
-    protected function addBlogToProject($blogId, $projectId)
+    protected function addBlogToProject($blogId, $projectId, $username=null, $password=null)
     {
         // Add blog to the project
         parent::addBlogToProject($blogId, $projectId);
@@ -264,11 +272,11 @@ class DeployMintSingleSite extends DeployMintAbstract
         $blogs = $this->getProjectBlogsIds($projectId);
 
         // Notify blogs that the project has changed
-        $this->updateBlogsWithProject($blogs, $projectId);
+        $this->updateBlogsWithProject($blogs, $projectId, $username, $password);
         return true;
     }
 
-    protected function updateBlogsWithProject($blogIds, $projectId)
+    protected function updateBlogsWithProject($blogIds, $projectId, $username, $password)
     {
         // If 
         if ($this->isXmlrpcRequest){
@@ -289,7 +297,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 } else {
                     remove_filter( 'https_local_ssl_verify', '__return_false' );
                 }
-                $this->doXmlrpcRequest($data, 'deploymint.addUpdateProject', $blog['blog_url'] . '/xmlrpc.php');
+                $this->doXmlrpcRequest($data, 'deploymint.addUpdateProject', $blog['blog_url'] . '/xmlrpc.php', $username, $password);
             } catch (Exception $e) {
                 //echo $e->getMessage();
             }
@@ -298,7 +306,7 @@ class DeployMintSingleSite extends DeployMintAbstract
 
     }
 
-    protected function createSnapshot($projectId, $blogId, $name, $desc)
+    protected function createSnapshot($projectId, $blogId, $name, $desc, $username=null, $password=null)
     {
         $blog = $this->getBlog($blogId);
         if ($blog['ignore_cert']==1){
@@ -312,7 +320,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 'name'      => $name,
                 'desc'      => $desc,
             );
-            return $this->doXmlrpcRequest($data, 'deploymint.createSnapshot', $blog['blog_url'] . '/xmlrpc.php');
+            return $this->doXmlrpcRequest($data, 'deploymint.createSnapshot', $blog['blog_url'] . '/xmlrpc.php', $username, $password);
         } else {
             throw new Exception("Could not create snapshot. Details could not be validated");
         }
@@ -340,7 +348,7 @@ class DeployMintSingleSite extends DeployMintAbstract
         $files = $this->mexec("$rsync -r -d $src" . "themes/* "  . WP_CONTENT_DIR . "/themes/" , './', null, 60);
     }
 
-    protected function deploySnapshot($snapshot, $blogId, $projectId)
+    protected function deploySnapshot($snapshot, $blogId, $projectId, $username=null, $password=null)
     {
         $blog = $this->getBlog($blogId);
         if ($blog['ignore_cert']==1){
@@ -353,16 +361,16 @@ class DeployMintSingleSite extends DeployMintAbstract
                 'blogId'    => $blogId,
                 'projectId' => $projectId,
             );
-            return $this->doXmlrpcRequest($data, 'deploymint.deploySnapshot', $blog['blog_url'] . '/xmlrpc.php');
+            return $this->doXmlrpcRequest($data, 'deploymint.deploySnapshot', $blog['blog_url'] . '/xmlrpc.php', $username, $password);
         } else {
             throw new Exception("Could not deploy snapshot. Details could not be validated");
         }
     }
 
-    protected function doXmlrpcRequest($data, $method, $url=null)
+    protected function doXmlrpcRequest($data, $method, $url=null, $username, $password)
     {
         // TODO: Prompt for login details
-        $params = array('admin', 'password', $data);
+        $params = array($username, $password, $data);
         $params = xmlrpc_encode_request($method, $params);
 
         if ($url==null){

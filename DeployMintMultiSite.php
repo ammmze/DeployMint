@@ -31,6 +31,14 @@ class DeployMintMultiSite extends DeployMintAbstract
         add_submenu_page(self::PAGE_INDEX, "Help", "Help", 'manage_network', self::PAGE_HELP, array($this, 'actionHelp'));
     }
 
+    public function initHandler()
+    {
+        parent::initHandler();
+        if (is_admin()) {
+            wp_enqueue_script('deploymint-mu-js', plugin_dir_url(__FILE__) . 'js/deploymint.mu.js', array('jquery'));
+        }
+    }
+
     protected function createSnapshot($projectId, $blogId, $name, $desc)
     {
         $valid = parent::createSnapshot($projectId, $blogId, $name, $desc);

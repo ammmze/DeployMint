@@ -245,6 +245,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         if (is_admin()) {
             wp_enqueue_script('jquery-templates', plugin_dir_url(__FILE__) . 'js/jquery.tmpl.min.js', array('jquery'));
+            wp_enqueue_script('jquery-leadmodal-js', plugin_dir_url(__FILE__) . 'js/jquery.easyModal.min.js', array('jquery'));
             wp_enqueue_script('deploymint-js', plugin_dir_url(__FILE__) . 'js/deploymint.js', array('jquery'));
             wp_localize_script('deploymint-js', 'DeployMintVars', array(
                 'ajaxURL' => admin_url('admin-ajax.php')
@@ -421,7 +422,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         $this->checkPerms();
         try {
-            if ($this->addBlogToProject($_POST['blogID'], $_POST['projectID'])) {
+            if ($this->addBlogToProject($_POST['blogID'], $_POST['projectID'], $_POST['username'], $_POST['password'])) {
                 die(json_encode(array('ok' => 1)));
             }
         } catch (Exception $e){
@@ -434,7 +435,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         $this->checkPerms();
         try {
-            if ($this->removeBlogFromProject($_POST['blogID'], $_POST['projectID'])) {
+            if ($this->removeBlogFromProject($_POST['blogID'], $_POST['projectID'], $_POST['username'], $_POST['password'])) {
                 die(json_encode(array('ok' => 1)));
             }
         } catch (Exception $e){
@@ -575,13 +576,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return $this->pdb->get_results($this->pdb->prepare("SELECT blog_id, domain, path FROM $blogsTable ORDER BY domain ASC"), ARRAY_A);
     }
 
-    protected function removeBlogFromProject($blogId, $projectId)
+    protected function removeBlogFromProject($blogId, $projectId, $username=null, $password=null)
     {
         $this->pdb->query($this->pdb->prepare("UPDATE dep_members SET deleted=1 WHERE blog_id=%d and project_id=%d", $blogId, $projectId));
         return true;
     }
 
-    protected function addBlogToProject($blogId, $projectId)
+    protected function addBlogToProject($blogId, $projectId, $username=null, $password=null)
     {
         if (!$this->projectHasBlog($blogId, $projectId)) {
             $this->pdb->query($this->pdb->prepare("INSERT INTO dep_members (blog_id, project_id) VALUES (%d, %d)", $blogId, $projectId));
@@ -599,7 +600,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         $this->checkPerms();
         try {
-            if ($this->createSnapshot($_REQUEST['projectid'], $_REQUEST['blogid'], $_REQUEST['name'], $_REQUEST['desc'])) {
+            if ($this->createSnapshot($_REQUEST['projectid'], $_REQUEST['blogid'], $_REQUEST['name'], $_REQUEST['desc'], $_REQUEST['username'], $_REQUEST['password'])) {
                 die(json_encode(array('ok' => 1)));
             }
         } catch (Exception $e){
@@ -609,7 +610,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         
     }
 
-    protected function createSnapshot($projectId, $blogId, $name, $desc)
+    protected function createSnapshot($projectId, $blogId, $name, $desc, $username=null, $password=null)
     {
         // Validate name and description
         if (!preg_match('/\w+/', $name)) {
@@ -807,7 +808,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         $this->checkPerms();
         try {
-            if ($this->deploySnapshot($_REQUEST['name'], $_REQUEST['blogid'], $_REQUEST['projectid'])) {
+            if ($this->deploySnapshot($_REQUEST['name'], $_REQUEST['blogid'], $_REQUEST['projectid'], $_REQUEST['username'], $_REQUEST['password'])) {
                 die(json_encode(array('ok' => 1)));
             }
         } catch (Exception $e){
@@ -816,7 +817,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
     }
 
-    protected function deploySnapshot($snapshot, $blogId, $projectId)
+    protected function deploySnapshot($snapshot, $blogId, $projectId, $username=null, $password=null)
     {
         return true;
     }
