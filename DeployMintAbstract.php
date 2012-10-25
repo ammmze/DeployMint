@@ -205,14 +205,18 @@ abstract class DeployMintAbstract implements DeployMintInterface
         die(json_encode(array('err' => $msg)));
     }
 
-    protected function mexec($cmd, $cwd = './', $env = NULL)
-    {
+    protected function mexec($cmd, $cwd = './', $env = null, $timeout = null)
+    { // TODO: Put this somewhere it can be used by all DeployMint classes
         $dspec = array(
             0 => array("pipe", "r"), //stdin
             1 => array("pipe", "w"), //stdout
             2 => array("pipe", "w") //stderr
         );
         $proc = proc_open($cmd, $dspec, $pipes, $cwd);
+        if ($timeout != null) {
+            stream_set_timeout($pipes[1], $timeout);
+            stream_set_timeout($pipes[2], $timeout);
+        }
         $stdout = stream_get_contents($pipes[1]);
         $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
@@ -632,6 +636,10 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return $this->pdb->base_prefix;
     }
 
+    protected function copyFilesToDataDir($blogId, $dest){}
+
+    protected function copyFilesFromDataDir($blogId, $src){}
+
     protected function doSnapshot($projectId, $blogId, $name, $desc)
     {
         $this->checkPerms();
@@ -645,22 +653,16 @@ abstract class DeployMintAbstract implements DeployMintInterface
             throw new Exception("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
         }
 
-        $this->mexec("$git fetch origin");
+        // Make sure we are current from the remote
+        DeployMintProjectTools::fetch($dir);
 
         // Make sure project directory is a working git directory
-        $branchOut = $this->mexec("$git branch -a 2>&1", $dir);
-        if (preg_match('/fatal/', $branchOut)) {
+        if (!DeployMintProjectTools::isGitRepo($dir)) {
             throw new Exception("The directory $dir is not a valid git repository. The output we received is: $branchOut");
         }
 
         // Check if branch exists
-        $branches = preg_split('/[\r\n\s\t\*]+/', $branchOut);
-        $bdup = array();
-        for ($i = 0; $i < sizeof($branches); $i++) {
-            $b = preg_replace('/remotes\/.*\//i', '', $branches[$i]);
-            $bdup[$b] = 1;
-        }
-        if (array_key_exists($name, $bdup)) {
+        if (DeployMintProjectTools::branchExists($dir, $name)) {
             throw new Exception("A snapshot with the name $name already exists. Please choose another.");
         }
         $cout1 = $this->mexec("$git checkout master 2>&1", $dir);
@@ -676,11 +678,11 @@ abstract class DeployMintAbstract implements DeployMintInterface
             throw new Exception("We could not write to deployData.txt in the directory $dir");
         }
         fclose($fh2);
-        $prefixOut = $this->mexec("$git add deployData.txt 2>&1", $dir);
+        //$prefixOut = $this->mexec("$git add deployData.txt 2>&1", $dir);
 
         // Add the Media locations
-        $files = $this->mexec("$rsync -r -d " . WP_CONTENT_DIR . "/blogs.dir/$blogId/* $dir" . "blogs.dir/");
-        $filesOut = $this->mexec("$git add blogs.dir/ 2>&1", $dir);
+        $this->copyFilesToDataDir($blogId, $dir);
+        $add = DeployMintProjectTools::git('add .', $dir);
 
         $siteURLRes = $this->pdb->get_results($this->pdb->prepare("SELECT option_name, option_value FROM $prefix" . "options WHERE option_name = 'siteurl'"), ARRAY_A);
         $siteURL = $siteURLRes[0]['option_value'];
@@ -712,7 +714,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             }
         }
         if (sizeof($dumpErrs) > 0) {
-            $resetOut = $this->mexec("$git reset --hard HEAD 2>&1", $dir);
+            $resetOut = DeployMintProjectTools::git('reset --hard HEAD', $dir);
             if (!preg_match('/HEAD is now at/', $resetOut)) {
                 throw new Exception("Errors occured during mysqldump and we could not revert the git repository in $dir back to it's original state using '$git reset --hard HEAD'. The output we got was: " . $resetOut);
             }
@@ -728,19 +730,19 @@ abstract class DeployMintAbstract implements DeployMintInterface
         
         $user_name = trim($current_user->user_firstname . ' ' . $current_user->user_lastname);
         if ($user_name == '') {
-            $user_name = $current_user->display_name || 'unknown';
+            $user_name = $current_user->display_name;
         }
         $commitUser = $user_name . ' <' . $current_user->user_email . '>';
-        $commitOut2 = $this->mexec("$git commit --author=\"$commitUser\" -a -F \"$tmpfile\" 2>&1", $dir);
+        $commitOut2 = DeployMintProjectTools::git("commit --author=\"$commitUser\" -a -F \"$tmpfile\"", $dir);
         unlink($tmpfile);
         if (!preg_match('/files changed/', $commitOut2)) {
             throw new Exception("git commit failed. The output we got was: $commitOut2");
         }
-        $brOut2 = $this->mexec("$git branch $name 2>&1 ", $dir);
+        $brOut2 = DeployMintProjectTools::git('branch ' . $name, $dir);
         if (preg_match('/\w+/', $brOut2)) {
             throw new Exception("We encountered an error running '$git branch $name' the output was: $brOut2");
         }
-        $brOut2 = $this->mexec("$git push origin $name 2>&1 ", $dir);
+        DeployMintProjectTools::git('push origin ' . $name, $dir);
         return true;
     }
 
@@ -829,13 +831,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!preg_match('/\w+/', $name)) {
             throw new Exception("Please select a snapshot to deploy.");
         }
-        $prec = $this->pdb->get_results($this->pdb->prepare("select * from dep_projects where id=%d and deleted=0", $pid), ARRAY_A);
+        $prec = $this->pdb->get_results($this->pdb->prepare("SELECT * FROM dep_projects WHERE id=%d AND deleted=0", $pid), ARRAY_A);
         if (sizeof($prec) < 1) {
             throw new Exception("That project doesn't exist.");
         }
         $proj = $prec[0];
         $dir = $datadir . $proj['dir'] . '/';
-        $mexists = $this->pdb->get_results($this->pdb->prepare("select blog_id from dep_members where blog_id=%d and project_id=%d and deleted=0", $blogid, $pid), ARRAY_A);
+        $mexists = $this->pdb->get_results($this->pdb->prepare("SELECT blog_id FROM dep_members WHERE blog_id=%d AND project_id=%d AND deleted=0", $blogid, $pid), ARRAY_A);
         if (sizeof($mexists) < 1) {
             throw new Exception("That blog doesn't exist or is not a member of this project. Please select a valid blog to deploy to.");
         }
@@ -852,7 +854,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if ($opt['preserveBlogName']) {
             $optionsToRestore[] = 'blogname';
         }
-        $res3 = $this->pdb->get_results($this->pdb->prepare("select option_name, option_value from $destTablePrefix" . "options where option_name IN ('" . implode("','", $optionsToRestore) . "')"), ARRAY_A);
+        $res3 = $this->pdb->get_results($this->pdb->prepare("SELECT option_name, option_value FROM $destTablePrefix" . "options WHERE option_name IN ('" . implode("','", $optionsToRestore) . "')"), ARRAY_A);
         if (sizeof($res3) < 1) {
             throw new Exception("We could not find the data we need for the blog you're trying to deploy to.");
         }
@@ -862,7 +864,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
 
         // Update the Media folder
-        $files = $this->mexec("$rsync -r -d $dir" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogid/");
+        $this->copyFilesFromDataDir($blogid, $dir);
         
         $fh = fopen($dir . 'deployData.txt', 'r');
         $deployData = fread($fh, 100);
@@ -886,13 +888,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!mysql_select_db($temporaryDatabase, $dbh)) {
             throw new Exception("Could not select temporary database $temporaryDatabase : " . mysql_error($dbh));
         }
-        $curdbres = mysql_query("select DATABASE()", $dbh);
+        $curdbres = mysql_query("SELECT DATABASE()", $dbh);
         $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
         if (mysql_error($dbh)) {
             throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
         }
         $destSiteURL = $options['siteurl'];
-        $res4 = mysql_query("select option_value from $sourceTablePrefix" . "options where option_name='siteurl'", $dbh);
+        $res4 = mysql_query("SELECT option_value FROM $sourceTablePrefix" . "options WHERE option_name='siteurl'", $dbh);
         if (mysql_error($dbh)) {
             throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
         }
@@ -910,25 +912,22 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!$sourceSiteURL) {
             throw new Exception("We could not get the siteurl from the database we're about to deploy. That could mean that we could not create the DB or the import failed. (3)");
         }
-        $destHost = preg_replace('/^https?:\/\/([^\/]+).*$/i', '$1', $destSiteURL);
-        $sourceHost = preg_replace('/^https?:\/\/([^\/]+).*$/i', '$1', $sourceSiteURL);
+        $destHost = preg_replace('/^https?:\/\/([^\/]+.*)$/i', '$1', $destSiteURL);
+        $sourceHost = preg_replace('/^https?:\/\/([^\/]+.*)$/i', '$1', $sourceSiteURL);
         foreach ($options as $oname => $val) {
-            mysql_query("update $sourceTablePrefix" . "options set option_value='" . mysql_real_escape_string($val) . "' where option_name='" . mysql_real_escape_string($oname) . "'", $dbh);
+            mysql_query("UPDATE $sourceTablePrefix" . "options set option_value='" . mysql_real_escape_string($val) . "' WHERE option_name='" . mysql_real_escape_string($oname) . "'", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
         }
-        $res5 = mysql_query("select ID, post_content, guid from $sourceTablePrefix" . "posts", $dbh);
+        $res5 = mysql_query("SELECT ID, post_content, guid FROM $sourceTablePrefix" . "posts", $dbh);
         if (mysql_error($dbh)) {
             throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
         }
-        while ($row = mysql_fetch_array($res5, MYSQL_ASSOC)) {
-            $content = preg_replace('/(https?:\/\/)' . $sourceHost . '/i', '$1' . $destHost, $row['post_content']);
-            $guid = preg_replace('/(https?:\/\/)' . $sourceHost . '/i', '$1' . $destHost, $row['guid']);
-            mysql_query("update $sourceTablePrefix" . "posts set post_content='" . mysql_real_escape_string($content) . "', guid='" . mysql_real_escape_string($guid) . "' where ID=" . $row['ID'], $dbh);
-            if (mysql_error($dbh)) {
-                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-            }
+        
+        mysql_query("UPDATE {$sourceTablePrefix}posts SET post_content=REPLACE(post_content, '$sourceHost', '$destHost'), guid=REPLACE(guid, '$sourceHost', '$destHost')", $dbh);
+        if (mysql_error($dbh)) {
+            throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
         }
 
         mysql_query("UPDATE {$temporaryDatabase}.{$sourceTablePrefix}options SET option_name='{$destTablePrefix}user_roles' WHERE option_name='{$sourceTablePrefix}user_roles'", $dbh);
