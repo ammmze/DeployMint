@@ -679,14 +679,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
             throw new Exception("We could not write to deployData.txt in the directory $dir");
         }
         fclose($fh2);
-        //$prefixOut = $this->mexec("$git add deployData.txt 2>&1", $dir);
 
         // Add the Media locations
         $this->copyFilesToDataDir($blogId, $dir);
         $add = DeployMintProjectTools::git('add .', $dir);
 
-        $siteURLRes = $this->pdb->get_results($this->pdb->prepare("SELECT option_name, option_value FROM $prefix" . "options WHERE option_name = 'siteurl'"), ARRAY_A);
-        $siteURL = $siteURLRes[0]['option_value'];
+        $siteURLRes = $this->pdb->get_row($this->pdb->prepare("SELECT option_name, option_value FROM $prefix" . "options WHERE option_name = 'siteurl'"), ARRAY_A);
+        $siteURL = $siteURLRes['option_value'];
         $desc = "Snapshot of: $siteURL\n" . $desc;
 
         $dumpErrs = array();

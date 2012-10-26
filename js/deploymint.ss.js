@@ -2,7 +2,7 @@ window['deploymintSS'] = {
     loginModal : null,
     addCredentials: function(data, callback){
         if (this.loginModal == null) {
-            var login = jQuery("#DeployMint-Login");
+            var login = jQuery("#DeployMint-Login").clone().appendTo('body');
             login.easyModal({
                 onOpen : function(modal){
                     jQuery(":input:first", modal).focus();
@@ -23,9 +23,8 @@ window['deploymintSS'] = {
                 },
                 onClose : function(modal){}
             })
-            this.loginModal = login;
         }
-        this.loginModal.trigger('openModal');
+        login.trigger('openModal');
     },
     addBlogToProject: function(data){
         var self = this;
@@ -36,7 +35,7 @@ window['deploymintSS'] = {
     removeBlogFromProject: function(data){
         var self = this;
         this.addCredentials(data, function(d){
-            self.parent.addBlogToProject(d);
+            self.parent.removeBlogFromProject(d);
         });
     },
     createSnapshot: function(data){

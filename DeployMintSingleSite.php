@@ -335,17 +335,17 @@ class DeployMintSingleSite extends DeployMintAbstract
     protected function copyFilesToDataDir($blogId, $dest)
     {
         extract($this->getOptions(), EXTR_OVERWRITE);
-        $this->mexec("$rsync -r -d " . WP_CONTENT_DIR . "/uploads/* $dest" . "uploads/", './', null, 60);
-        $this->mexec("$rsync -r -d " . WP_CONTENT_DIR . "/plugins/* $dest" . "plugins/", './', null, 60);
-        $this->mexec("$rsync -r -d " . WP_CONTENT_DIR . "/themes/* $dest"  . "themes/" , './', null, 60);
+        $this->mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/uploads/* $dest" . "uploads/", './', null, 60);
+        $this->mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/plugins/* $dest" . "plugins/", './', null, 60);
+        $this->mexec("$rsync -rd --exclude '.git'" . WP_CONTENT_DIR . "/themes/* $dest"  . "themes/" , './', null, 60);
     }
 
     protected function copyFilesFromDataDir($blogId, $src)
     {
         extract($this->getOptions(), EXTR_OVERWRITE);
-        $files = $this->mexec("$rsync -r -d $src" . "uploads/* " . WP_CONTENT_DIR . "/uploads/", './', null, 60);
-        $files = $this->mexec("$rsync -r -d $src" . "plugins/* " . WP_CONTENT_DIR . "/plugins/", './', null, 60);
-        $files = $this->mexec("$rsync -r -d $src" . "themes/* "  . WP_CONTENT_DIR . "/themes/" , './', null, 60);
+        $files = $this->mexec("$rsync -rd --exclude '.git' $src" . "uploads/* " . WP_CONTENT_DIR . "/uploads/", './', null, 60);
+        $files = $this->mexec("$rsync -rd --exclude '.git' $src" . "plugins/* " . WP_CONTENT_DIR . "/plugins/", './', null, 60);
+        $files = $this->mexec("$rsync -rd --exclude '.git' $src" . "themes/* "  . WP_CONTENT_DIR . "/themes/" , './', null, 60);
     }
 
     protected function deploySnapshot($snapshot, $blogId, $projectId, $username=null, $password=null)
