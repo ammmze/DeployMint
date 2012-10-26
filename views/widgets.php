@@ -31,4 +31,8 @@
     </div>
 </div>
 
+<div id="DeployMint-Working" class="DeployMint-Modal" style="display:none;">
+    <p class='message'></p>
+</div>
+
 </div>

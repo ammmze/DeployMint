@@ -86,12 +86,12 @@ class DeployMintMultiSite extends DeployMintAbstract
     protected function copyFilesToDataDir($blogId, $dest)
     {
         extract($this->getOptions(), EXTR_OVERWRITE);
-        $this->mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/blogs.dir/$blogId/* $dest" . "blogs.dir/", './', null, 60);
+        DeployMintTools::mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/blogs.dir/$blogId/* $dest" . "blogs.dir/", './', null, 60);
     }
 
     protected function copyFilesFromDataDir($blogId, $src)
     {
         extract($this->getOptions(), EXTR_OVERWRITE);
-        $files = $this->mexec("$rsync -rd --exclude '.git' $src" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogId/", './', null, 60);
+        $files = DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogId/", './', null, 60);
     }
 }

@@ -33,6 +33,13 @@ include dirname(__FILE__) . '/widgets.php';
 {{each(i,proj) projects}}
 <h2>Project: ${proj.name}&nbsp;<a href="#" onclick="deploymint.deleteProject(${proj.id}); return false;" style="font-size: 10px;">remove</a></h2>
 <div class="depProjWrap">
+    {{if proj.origin}}
+    <div>Origin: ${proj.origin}</div>
+    {{/if}}
+    {{if proj.project_uuid}}
+    <div>UUID: ${proj.project_uuid}</div>
+    {{/if}}
+    <br />
     Add a blog to this project:&nbsp;<select id="projAddSel${proj.id}">
     {{if proj.numNonmembers}}
     {{each(k,blog) proj.nonmemberBlogs}}

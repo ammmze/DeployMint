@@ -72,26 +72,6 @@ class DeployMintProjectTools
     public static function git($cmd, $dir)
     {
         $git = self::$git;
-        return self::mexec("$git $cmd 2>&1", $dir);
-    }
-
-    protected static function mexec($cmd, $cwd = './', $env = null, $timeout = null)
-    { // TODO: Put this somewhere it can be used by all DeployMint classes
-        $dspec = array(
-            0 => array("pipe", "r"), //stdin
-            1 => array("pipe", "w"), //stdout
-            2 => array("pipe", "w") //stderr
-        );
-        $proc = proc_open($cmd, $dspec, $pipes, $cwd);
-        if ($timeout != null) {
-            stream_set_timeout($pipes[1], $timeout);
-            stream_set_timeout($pipes[2], $timeout);
-        }
-        $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $ret = proc_close($proc);
-        return $stdout . $stderr;
+        return DeployMintTools::mexec("$git $cmd 2>&1", $dir);
     }
 }

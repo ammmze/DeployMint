@@ -27,17 +27,39 @@ window['deploymint'] = {
         this.alertModal.find('.message').html(message);
         this.alertModal.trigger('openModal');
     },
+    working : function(message) {
+        var d = jQuery("#DeployMint-Working").clone().appendTo('body');
+        d.easyModal({
+            overlayClose : false,
+            closeOnEscapse : false,
+            onOpen : function(modal){
+                jQuery(":input:first", modal).focus();
+                jQuery("[name='close']", modal).unbind('click').bind('click',function(){
+                    d.trigger('closeModal');
+                });
+            },
+            onClose : function(modal){}
+        })
+        d.find('.message').html(message || 'Working');
+        d.trigger('openModal');
+        d.done = function(){
+            d.trigger('closeModal');
+        }
+        return d;
+    },
     updateOptions: function(data){
         var self = this;
         jQuery('#sdOptErrors').hide();
         jQuery('#sdOptErrors').empty();
         data.action = "deploymint_updateOptions"
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: data,
             success: function(resp){
+                d.done();
                 if(resp.errs){
                     for(var i = 0; i < resp.errs.length; i++){
                         console.log(resp.errs[i])
@@ -67,12 +89,14 @@ window['deploymint'] = {
     addBlogToProject: function(data){
         var self = this;
         data.action = "deploymint_addBlogToProject";
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: data,
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -85,12 +109,14 @@ window['deploymint'] = {
     },  
     removeBlogFromProject: function(data){
         data.action = "deploymint_removeBlogFromProject";
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: data,
             success: function(resp){
+                d.done()
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -103,6 +129,7 @@ window['deploymint'] = {
     },
     deleteBackups: function(delArr){
         if(confirm("Are you 100% sure you want to delete the selected backups? This can't be undone.")){
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -112,6 +139,7 @@ window['deploymint'] = {
                 toDel: delArr
                 },
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -128,6 +156,7 @@ window['deploymint'] = {
     deleteProject: function(projectID){
         var self = this;
         if(confirm("Are you 100% sure you want to delete this project? This can't be undone.")){
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -137,6 +166,7 @@ window['deploymint'] = {
                 projectID: projectID
                 },
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -152,6 +182,7 @@ window['deploymint'] = {
     },
     createProject: function(name, origin){
         var self = this;
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -162,6 +193,7 @@ window['deploymint'] = {
                 origin: origin || ''
                 },
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -174,6 +206,7 @@ window['deploymint'] = {
     },
     reloadProjects: function(){
         var self = this;
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -182,6 +215,7 @@ window['deploymint'] = {
                 action: "deploymint_reloadProjects"
                 },
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -195,7 +229,8 @@ window['deploymint'] = {
 
     },
     addBlog: function(url, name, ignoreCert){
-        parent = this;
+        var self = this;
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -207,7 +242,8 @@ window['deploymint'] = {
                 ignoreCert: ignoreCert ? 1 : 0
                 },
             success: function(resp){
-                parent.reloadBlogs();
+                d.done();
+                self.reloadBlogs();
             },
             error: function(){}
             });
@@ -215,7 +251,8 @@ window['deploymint'] = {
 
     },
     removeBlog: function(id){
-        parent = this;
+        var self = this;
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -225,7 +262,8 @@ window['deploymint'] = {
                 id: id
                 },
             success: function(resp){
-                parent.reloadBlogs();
+                d.done();
+                self.reloadBlogs();
             },
             error: function(){}
             });
@@ -234,6 +272,7 @@ window['deploymint'] = {
     },
     reloadBlogs: function(){
         var self = this;
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -242,6 +281,7 @@ window['deploymint'] = {
                 action: "deploymint_reloadBlogs"
                 },
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -259,12 +299,14 @@ window['deploymint'] = {
     createSnapshot: function(data){
         var self = this;
         data.action = "deploymint_createSnapshot";
+        var d = this.working();
         jQuery.ajax({
             type: "GET",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: data,
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -282,18 +324,21 @@ window['deploymint'] = {
     deploySnapshot: function(data){
         var self = this;
         data.action = "deploymint_deploySnapshot";
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: data,
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
                 }
                 if(resp.ok){
-                    self.alert("Deployed succesfully. The total time the database was locked was " + resp.lockTime + " seconds.");
+                    //self.alert("Deployed succesfully. The total time the database was locked was " + resp.lockTime + " seconds.");
+                    self.alert("Deployed succesfully.");
                 } else {
                     self.alert("An unknown error occurred taking your snapshot.");
                     return;
@@ -308,6 +353,7 @@ window['deploymint'] = {
         if(! confirm("Are you sure you want to revert your ENTIRE Wordpress installation to this backup that we took before deployment?")){
             return;
         }
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -317,6 +363,7 @@ window['deploymint'] = {
                 dbname: dbname
                 },
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     window.location.reload(false);
@@ -340,6 +387,7 @@ window['deploymint'] = {
 
     updateDeploySnapshot: function(projectid, selectedSnap){
         var self = this;
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -349,6 +397,7 @@ window['deploymint'] = {
                 projectid: projectid
                 },
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -365,6 +414,7 @@ window['deploymint'] = {
     updateSnapDesc: function(projectid, snapname){
         var self = this;
         if(! snapname){ return; }
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -375,6 +425,7 @@ window['deploymint'] = {
                 snapname: snapname
                 },
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -390,6 +441,7 @@ window['deploymint'] = {
 
     updateCreateSnapshot: function(projectid){
         var self = this;
+        var d = this.working();
         jQuery.ajax({
             type: "GET",
             url: DeployMintVars.ajaxURL,
@@ -399,6 +451,7 @@ window['deploymint'] = {
                 projectid: projectid
                 },
             success: function(resp){
+                d.done();
                 if(resp.err){
                     self.alert(resp.err);
                     return;
@@ -411,6 +464,7 @@ window['deploymint'] = {
 
     },
     deploy: function(){
+        var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
@@ -421,6 +475,7 @@ window['deploymint'] = {
                 deployTo: jQuery('#deploymintTo').val()
                 },
             success: function(resp){
+                d.done();
                 jQuery('#deploymintnotice1').empty().hide();
                 jQuery('#deployminttmpl1').tmpl(resp).appendTo('#deploymintnotice1');
                 jQuery('#deploymintnotice1').fadeIn();

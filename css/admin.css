@@ -65,6 +65,13 @@ table.deploymint-blogs td{
 
 .DeployMint-Modal {
     background: #FFF;
-    width: 260px;
+    max-width: 260px;
     padding: 20px;
+}
+#DeployMint-Working {
+    padding-left: 68px;
+    background-image: url(../images/working.gif);
+    background-repeat: no-repeat;
+    background-position: 10px center;
+    min-height: 48px;
 }

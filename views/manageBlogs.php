@@ -42,6 +42,7 @@ include dirname(__FILE__) . '/widgets.php';
         <tr>
             <th>Name</th>
             <th>URL</th>
+            <th>UUID</th>
             <th>Ignore Certificate Errors</th>
             <th>Actions</th>
         </tr>
@@ -51,6 +52,7 @@ include dirname(__FILE__) . '/widgets.php';
             <tr class="deploymint-blog">
                 <td>${blog.blog_name}</td>
                 <td>${blog.blog_url}</td>
+                <td>${blog.blog_uuid}</td>
                 <td>${blog.ignore_cert}</td>
                 <td>
                     <input disabled="disabled" type="button" value="Edit" title="Not yet implemented" onclick="deploymint.editBlog(${blog.id}); return false;" class="button-primary">

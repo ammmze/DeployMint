@@ -17,6 +17,7 @@ Author URI: http://markmaunder.com/
 require('deploymintClass.php');
 require 'DeployMintInterface.php';
 require 'DeployMintAbstract.php';
+require 'DeployMintTools.php';
 require 'DeployMintProjectTools.php';
 if (is_multisite()) {
     require 'DeployMintMultiSite.php';

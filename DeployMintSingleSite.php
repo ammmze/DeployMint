@@ -121,7 +121,9 @@ class DeployMintSingleSite extends DeployMintAbstract
         try {
             $auth = $this->xmlrpcAuth($args);
             if ($auth === true) {
-                $this->doSnapshot($data['projectId'], $data['blogId'], $data['name'], $data['desc']);
+                $project = $this->getProjectByUUID($data['projectId']);
+                $blog    = $this->getBlogByUUID($data['blogId']);
+                $this->doSnapshot($project['id'], $blog['id'], $data['name'], $data['desc']);
             } else {
                 throw new Exception(print_r($auth,true));
             }
@@ -143,7 +145,9 @@ class DeployMintSingleSite extends DeployMintAbstract
         try {
             $auth = $this->xmlrpcAuth($args);
             if ($auth === true) {
-                $this->doDeploySnapshot($data['snapshot'], $data['blogId'], $data['projectId']);
+                $project = $this->getProjectByUUID($data['projectId']);
+                $blog    = $this->getBlogByUUID($data['blogId']);
+                $this->doDeploySnapshot($data['snapshot'], $blog['id'], $project['id']);
             } else {
                 throw new Exception(print_r($auth,true));
             }
@@ -182,18 +186,24 @@ class DeployMintSingleSite extends DeployMintAbstract
 
     protected function doAddUpdateProject($project, $blogs)
     {
-        // Check if project exists
-        if (!$this->projectExists($project['name'])) {
-            // Create project
-            $this->createProject($project['name'], $project['origin']);
-        }
+        $myProject = $this->getProjectByUUID($project['project_uuid']);
 
-        $myProject = $this->getProjectByName($project['name']);
+        // Check if project exists
+        if ($myProject == null) {
+            if (!$this->projectExists($project['name'])) {
+                // Create project
+                $this->createProject($project['name'], $project['origin'], $project['project_uuid']);
+            } else {
+                // Come up with new name and create the project
+                $this->createProject($project['name'] . '_' . time(), $project['origin'], $project['project_uuid']);
+            }
+            $myProject = $this->getProjectByUUID($project['project_uuid']);
+        }
 
         $blogsToKeep = array();
         foreach($blogs as $b) {
             // Add the blog, if it already exists, it just updates the record
-            $this->addBlog($b['blog_url'], $b['blog_name'], $b['ignore_cert']);
+            $this->addBlog($b['blog_url'], $b['blog_name'], $b['ignore_cert'], $b['blog_uuid']);
             $currentBlog = $this->getBlogByUrl($b['blog_url']);
 
             // Add blog to project
@@ -209,12 +219,15 @@ class DeployMintSingleSite extends DeployMintAbstract
         }
     }
 
-    protected function addBlog($url, $name, $ignoreCert)
+    protected function addBlog($url, $name, $ignoreCert, $uuid=null)
     {
+        if ($uuid == null) {
+            $uuid = DeployMintTools::generateUUID();
+        }
         if (!$this->blogExistsByUrl($url)){
-            $this->pdb->insert('dep_blogs', array('blog_url'=>$url, 'blog_name'=>$name, 'ignore_cert'=>$ignoreCert), array('%s','%s','%d'));
+            $this->pdb->insert('dep_blogs', array('blog_url'=>$url, 'blog_name'=>$name, 'ignore_cert'=>$ignoreCert, 'blog_uuid'=>$uuid), array('%s','%s','%d','%s'));
         } else {
-            $this->pdb->update('dep_blogs', array('blog_url'=>$url, 'blog_name'=>$name, 'ignore_cert'=>$ignoreCert), array('blog_url'=>$url,'deleted'=>0), array('%s','%s','%d'));
+            $this->pdb->update('dep_blogs', array('blog_url'=>$url, 'blog_name'=>$name, 'ignore_cert'=>$ignoreCert, 'blog_uuid'=>$uuid), array('blog_url'=>$url,'deleted'=>0), array('%s','%s','%d','%s'));
         }
     }
 
@@ -232,12 +245,17 @@ class DeployMintSingleSite extends DeployMintAbstract
 
     protected function getBlog($id)
     {
-        return $this->pdb->get_row($this->pdb->prepare("SELECT *, blog_url AS domain, id AS blog_id FROM dep_blogs WHERE id = %d ORDER BY domain ASC", array($id)), ARRAY_A);
+        return $this->pdb->get_row($this->pdb->prepare("SELECT *, blog_url AS domain, id AS blog_id FROM dep_blogs WHERE id = %d", array($id)), ARRAY_A);
     }
 
     protected function getBlogByUrl($url)
     {
-        return $this->pdb->get_row($this->pdb->prepare("SELECT *, blog_url AS domain, id AS blog_id FROM dep_blogs WHERE blog_url = %s AND deleted=0 ORDER BY domain ASC", array($url)), ARRAY_A);
+        return $this->pdb->get_row($this->pdb->prepare("SELECT *, blog_url AS domain, id AS blog_id FROM dep_blogs WHERE blog_url = %s AND deleted=0", array($url)), ARRAY_A);
+    }
+
+    protected function getBlogByUUID($uuid)
+    {
+        return $this->pdb->get_row($this->pdb->prepare("SELECT *, blog_url AS domain, id AS blog_id FROM dep_blogs WHERE blog_uuid = %s AND deleted=0", array($uuid)), ARRAY_A);
     }
 
     protected function getBlogs()
@@ -278,7 +296,7 @@ class DeployMintSingleSite extends DeployMintAbstract
 
     protected function updateBlogsWithProject($blogIds, $projectId, $username, $password)
     {
-        // If 
+        // Don't do it, if it this was initiated via xmlrpc...it could cause infinite recursion
         if ($this->isXmlrpcRequest){
             return;
         }
@@ -286,7 +304,8 @@ class DeployMintSingleSite extends DeployMintAbstract
             'project'   => $this->getProject($projectId),
             'blogs'     => $this->getProjectBlogs($projectId),
         );
-        //$data = array('projectData'=>json_encode($data));
+
+        $errors = array();
 
         foreach($blogIds as $id) {
             
@@ -299,9 +318,14 @@ class DeployMintSingleSite extends DeployMintAbstract
                 }
                 $this->doXmlrpcRequest($data, 'deploymint.addUpdateProject', $blog['blog_url'] . '/xmlrpc.php', $username, $password);
             } catch (Exception $e) {
+                $errors[] = "Error updated blog $id ({$blog['blog_url']}):" . $e->getMessage();
                 //echo $e->getMessage();
             }
             
+        }
+
+        if (sizeof($errors) > 0) {
+            throw new Exception("There were errors while attempting to notify the blogs of the updated project: \n" . implode("\n", $errors));
         }
 
     }
@@ -312,11 +336,13 @@ class DeployMintSingleSite extends DeployMintAbstract
         if ($blog['ignore_cert']==1){
             add_filter( 'https_local_ssl_verify', '__return_false' );
         }
-        $valid = parent::createSnapshot($projectId, $blogId, $name, $desc);
+        $valid   = parent::createSnapshot($projectId, $blogId, $name, $desc);
+        $project = $this->getProject($projectId);
+        $blog    = $this->getBlog($blogId);
         if ($valid) {
             $data = array(
-                'projectId' => $projectId,
-                'blogId'    => $blogId,
+                'projectId' => $project['project_uuid'],
+                'blogId'    => $blog['blog_uuid'],
                 'name'      => $name,
                 'desc'      => $desc,
             );
@@ -335,17 +361,17 @@ class DeployMintSingleSite extends DeployMintAbstract
     protected function copyFilesToDataDir($blogId, $dest)
     {
         extract($this->getOptions(), EXTR_OVERWRITE);
-        $this->mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/uploads/* $dest" . "uploads/", './', null, 60);
-        $this->mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/plugins/* $dest" . "plugins/", './', null, 60);
-        $this->mexec("$rsync -rd --exclude '.git'" . WP_CONTENT_DIR . "/themes/* $dest"  . "themes/" , './', null, 60);
+        DeployMintTools::mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/uploads/* $dest" . "uploads/", './', null, 60);
+        DeployMintTools::mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/plugins/* $dest" . "plugins/", './', null, 60);
+        DeployMintTools::mexec("$rsync -rd --exclude '.git'" . WP_CONTENT_DIR . "/themes/* $dest"  . "themes/" , './', null, 60);
     }
 
     protected function copyFilesFromDataDir($blogId, $src)
     {
         extract($this->getOptions(), EXTR_OVERWRITE);
-        $files = $this->mexec("$rsync -rd --exclude '.git' $src" . "uploads/* " . WP_CONTENT_DIR . "/uploads/", './', null, 60);
-        $files = $this->mexec("$rsync -rd --exclude '.git' $src" . "plugins/* " . WP_CONTENT_DIR . "/plugins/", './', null, 60);
-        $files = $this->mexec("$rsync -rd --exclude '.git' $src" . "themes/* "  . WP_CONTENT_DIR . "/themes/" , './', null, 60);
+        $files = DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "uploads/* " . WP_CONTENT_DIR . "/uploads/", './', null, 60);
+        $files = DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "plugins/* " . WP_CONTENT_DIR . "/plugins/", './', null, 60);
+        $files = DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "themes/* "  . WP_CONTENT_DIR . "/themes/" , './', null, 60);
     }
 
     protected function deploySnapshot($snapshot, $blogId, $projectId, $username=null, $password=null)
@@ -354,12 +380,14 @@ class DeployMintSingleSite extends DeployMintAbstract
         if ($blog['ignore_cert']==1){
             add_filter( 'https_local_ssl_verify', '__return_false' );
         }
-        $valid = parent::deploySnapshot($snapshot, $blogId, $projectId);
+        $valid   = parent::deploySnapshot($snapshot, $blogId, $projectId);
+        $project = $this->getProject($projectId);
+        $blog    = $this->getBlog($blogId);
         if ($valid) {
             $data = array(
                 'snapshot'  => $snapshot,
-                'blogId'    => $blogId,
-                'projectId' => $projectId,
+                'blogId'    => $blog['blog_uuid'],
+                'projectId' => $project['project_uuid'],
             );
             return $this->doXmlrpcRequest($data, 'deploymint.deploySnapshot', $blog['blog_url'] . '/xmlrpc.php', $username, $password);
         } else {

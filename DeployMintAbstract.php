@@ -90,6 +90,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             name varchar(100) NOT NULL,
             dir varchar(120) NOT NULL,
             origin varchar(255) NOT NULL,
+            project_uuid varchar(36) NOT NULL,
             deleted tinyint UNSIGNED default 0
         ) default charset=utf8");
         if (!$success) {
@@ -108,6 +109,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             id int UNSIGNED NOT NULL auto_increment PRIMARY KEY,
             blog_url varchar(255) NOT NULL,
             blog_name varchar(255) NOT NULL,
+            blog_uuid varchar(36) NOT NULL,
             ignore_cert tinyint UNSIGNED default 0,
             deleted tinyint UNSIGNED default 0
         ) default charset=utf8");
@@ -120,7 +122,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         $options = $this->getOptions();
         foreach (array('git', 'mysql', 'mysqldump', 'rsync') as $n) {
-            $options[$n] = $options[$n] ? $options[$n] : trim($this->mexec("which $n"));
+            $options[$n] = $options[$n] ? $options[$n] : trim(DeployMintTools::mexec("which $n"));
         }
         return $options;
     }
@@ -203,26 +205,6 @@ abstract class DeployMintAbstract implements DeployMintInterface
     protected function ajaxError($msg)
     {
         die(json_encode(array('err' => $msg)));
-    }
-
-    protected function mexec($cmd, $cwd = './', $env = null, $timeout = null)
-    { // TODO: Put this somewhere it can be used by all DeployMint classes
-        $dspec = array(
-            0 => array("pipe", "r"), //stdin
-            1 => array("pipe", "w"), //stdout
-            2 => array("pipe", "w") //stderr
-        );
-        $proc = proc_open($cmd, $dspec, $pipes, $cwd);
-        if ($timeout != null) {
-            stream_set_timeout($pipes[1], $timeout);
-            stream_set_timeout($pipes[2], $timeout);
-        }
-        $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $ret = proc_close($proc);
-        return $stdout . $stderr;
     }
 
     public function setPdb($pdb)
@@ -461,13 +443,16 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return sizeof($result) > 0;
     }
 
-    protected function createProject($name, $origin)
+    protected function createProject($name, $origin, $uuid=null)
     {
         $this->checkPerms();
         $opt = $this->getOptions();
         extract($opt, EXTR_OVERWRITE);
         if ($this->projectExists($name)) {
             throw new Exception('A project with that name already exists');
+        }
+        if ($uuid == null) {
+            $uuid = DeployMintTools::generateUUID();
         }
         $dir = $name;
         $dir = preg_replace('/[^a-zA-Z0-9]+/', '_', $dir);
@@ -486,11 +471,11 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!@mkdir($finaldir, 0755)) {
             throw new Exception('Could not create directory ' . $finaldir);
         }
-        $git1 = $this->mexec("$git init ; $git add . ", $finaldir);
+        $git1 = DeployMintTools::mexec("$git init ; $git add . ", $finaldir);
         if (strlen($origin) > 0) {
-            $this->mexec("$git remote add origin $origin ; $git fetch origin", $finaldir);
+            DeployMintTools::mexec("$git remote add origin $origin ; $git fetch origin", $finaldir);
         }
-        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir, origin) VALUES (unix_timestamp(), %s, %s, %s)", $name, $fulldir, $origin));
+        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir, origin, project_uuid) VALUES (unix_timestamp(), %s, %s, %s, %s)", $name, $fulldir, $origin, $uuid));
         return true;
     }
 
@@ -509,6 +494,11 @@ abstract class DeployMintAbstract implements DeployMintInterface
     protected function getProjectByName($name)
     {
         return $this->pdb->get_row($this->pdb->prepare("SELECT * FROM dep_projects WHERE name=%s AND deleted=0", array($name)), ARRAY_A);
+    }
+
+    protected function getProjectByUUID($uuid)
+    {
+        return $this->pdb->get_row($this->pdb->prepare("SELECT * FROM dep_projects WHERE project_uuid=%s AND deleted=0", array($uuid)), ARRAY_A);
     }
 
     protected function getProjects()
@@ -666,7 +656,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (DeployMintProjectTools::branchExists($dir, $name)) {
             throw new Exception("A snapshot with the name $name already exists. Please choose another.");
         }
-        $cout1 = $this->mexec("$git checkout master 2>&1", $dir);
+        $cout1 = DeployMintTools::mexec("$git checkout master 2>&1", $dir);
         //Before we do our initial commit we will get an error trying to checkout master because it doesn't exist.
         if (!preg_match("/(?:Switched to branch|Already on|error: pathspec 'master' did not match)/", $cout1)) {
             throw new Exception("We could not switch the git repository in $dir to 'master'. The output was: $cout1");
@@ -697,16 +687,16 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $dbpass = DB_PASSWORD;
             $dbhost = DB_HOST;
             $dbname = DB_NAME;
-            $o1 = $this->mexec("$mysqldump --skip-comments --extended-insert --complete-insert --skip-comments -u $dbuser -p$dbpass -h $dbhost $dbname $tableName > $path 2>&1", $dir);
+            $o1 = DeployMintTools::mexec("$mysqldump --skip-comments --extended-insert --complete-insert --skip-comments -u $dbuser -p$dbpass -h $dbhost $dbname $tableName > $path 2>&1", $dir);
             if (preg_match('/\w+/', $o1)) {
                 array_push($dumpErrs, $o1);
             } else {
 
-                $grepOut = $this->mexec("grep CREATE $path 2>&1");
+                $grepOut = DeployMintTools::mexec("grep CREATE $path 2>&1");
                 if (!preg_match('/CREATE/', $grepOut)) {
                     array_push($dumpErrs, "We could not create a valid table dump file for $tableName");
                 } else {
-                    $gitAddOut = $this->mexec("$git add $tableFile 2>&1", $dir);
+                    $gitAddOut = DeployMintTools::mexec("$git add $tableFile 2>&1", $dir);
                     if (preg_match('/\w+/', $gitAddOut)) {
                         throw new Exception("We encountered an error running '$git add $tableFile' the error was: $gitAddOut");
                     }
@@ -778,7 +768,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 if ($bname == 'master') {
                     continue;
                 }
-                $dateOut = $this->mexec("$git checkout $bname 2>&1; $git log -n 1 | grep Date 2>&1", $dir);
+                $dateOut = DeployMintTools::mexec("$git checkout $bname 2>&1; $git log -n 1 | grep Date 2>&1", $dir);
                 $m = '';
                 if (preg_match('/Date:\s+(.+)$/', $dateOut, &$m)) {
                     $ctime = strtotime($m[1]);
@@ -844,8 +834,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!is_dir($dir)) {
             throw new Exception("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
         }
-        $co0 = $this->mexec("$git fetch origin ; $git checkout -t origin/$name 2>&1", $dir);
-        $co1 = $this->mexec("$git checkout $name 2>&1", $dir);
+        $co0 = DeployMintTools::mexec("$git fetch origin ; $git checkout -t origin/$name 2>&1", $dir);
+        $co1 = DeployMintTools::mexec("$git checkout $name 2>&1", $dir);
         if (!preg_match('/(?:Switched|Already)/', $co1)) {
             throw new Exception("We could not find snapshot $name in the git repository. The error was: $co1");
         }
@@ -877,7 +867,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $dbpass = DB_PASSWORD;
         $dbhost = DB_HOST;
         $dbname = DB_NAME;
-        $slurp1 = $this->mexec("cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase ", $dir);
+        $slurp1 = DeployMintTools::mexec("cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase ", $dir);
         if (preg_match('/\w+/', $slurp1)) {
             throw new Exception("We encountered an error importing the data files from snapshot $name into database $temporaryDatabase $dbuser:$dbpass@$dbhost. The error was: " . substr($slurp1, 0, 1000));
         }
@@ -1177,7 +1167,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $res = $this->getProject($pid);
         $dir = $res['dir'];
         $fulldir = $datadir . $dir;
-        $logOut = $this->mexec("$git checkout $snapname >/dev/null 2>&1 ; $git log -n 1 2>&1 ; $git checkout master >/dev/null 2>&1", $fulldir);
+        $logOut = DeployMintTools::mexec("$git checkout $snapname >/dev/null 2>&1 ; $git log -n 1 2>&1 ; $git checkout master >/dev/null 2>&1", $fulldir);
         $logOut = preg_replace('/^commit [0-9a-fA-F]+[\r\n]+/', '', $logOut);
         if (preg_match('/fatal: bad default revision/', $logOut)) {
             die(json_encode(array('desc' => '')));
