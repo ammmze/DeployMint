@@ -16,7 +16,7 @@ class DeployMintProjectTools
 
     public static function isGitRepo($dir)
     {
-        $res = self::git("branch 2>&1", $dir);
+        $res = self::git("branch", $dir);
         if (preg_match('/fatal/', $res)) {
             return false;
         }
@@ -28,7 +28,7 @@ class DeployMintProjectTools
         $list = self::git('remote', $dir);
         $listArr = preg_split('/[\r\n\s\t\*]+/', $list);
         $clean = array();
-        foreach($list as $li) {
+        foreach($listArr as $li) {
             $name = trim($li);
             if (strlen($name)>0 && !in_array($name, $clean)) {
                 $clean[] = $name;
@@ -46,6 +46,8 @@ class DeployMintProjectTools
     {
         if (self::remoteExists($dir, $remoteName)) {
             return self::git("fetch $remoteName", $dir);
+        } else {
+            return null;
         }
     }
 

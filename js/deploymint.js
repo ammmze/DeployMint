@@ -301,7 +301,7 @@ window['deploymint'] = {
         data.action = "deploymint_createSnapshot";
         var d = this.working();
         jQuery.ajax({
-            type: "GET",
+            type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: data,
@@ -443,7 +443,7 @@ window['deploymint'] = {
         var self = this;
         var d = this.working();
         jQuery.ajax({
-            type: "GET",
+            type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
             data: {

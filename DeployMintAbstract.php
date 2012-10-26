@@ -761,6 +761,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
         $fetch = DeployMintProjectTools::fetch($dir);
         $branches = DeployMintProjectTools::getAllBranches($dir);
+        $bprefix = DeployMintProjectTools::remoteExists($dir) ? 'remotes/origin/' : '';
         $snapshots = array();
         for ($i = 0; $i < sizeof($branches); $i++) {
             if (preg_match('/\w+/', $branches[$i])) {
@@ -768,7 +769,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 if ($bname == 'master') {
                     continue;
                 }
-                $dateOut = DeployMintTools::mexec("$git checkout $bname 2>&1; $git log -n 1 | grep Date 2>&1", $dir);
+                
+                $dateOut = DeployMintTools::mexec("$git log -n 1 {$bprefix}{$bname} | grep Date 2>&1", $dir);
                 $m = '';
                 if (preg_match('/Date:\s+(.+)$/', $dateOut, &$m)) {
                     $ctime = strtotime($m[1]);
@@ -1167,7 +1169,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $res = $this->getProject($pid);
         $dir = $res['dir'];
         $fulldir = $datadir . $dir;
-        $logOut = DeployMintTools::mexec("$git checkout $snapname >/dev/null 2>&1 ; $git log -n 1 2>&1 ; $git checkout master >/dev/null 2>&1", $fulldir);
+        $bprefix = DeployMintProjectTools::remoteExists($dir) ? 'remotes/origin/' : '';
+        $logOut = DeployMintTools::mexec("$git log -n 1 ${bprefix}${snapname} 2>&1", $fulldir);
         $logOut = preg_replace('/^commit [0-9a-fA-F]+[\r\n]+/', '', $logOut);
         if (preg_match('/fatal: bad default revision/', $logOut)) {
             die(json_encode(array('desc' => '')));
