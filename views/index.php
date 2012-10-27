@@ -34,7 +34,17 @@ include dirname(__FILE__) . '/widgets.php';
 <h2>Project: ${proj.name}&nbsp;<a href="#" onclick="deploymint.deleteProject(${proj.id}); return false;" style="font-size: 10px;">remove</a></h2>
 <div class="depProjWrap">
     {{if proj.origin}}
-    <div>Origin: ${proj.origin}</div>
+    <div>
+        Origin: 
+        <span class="deploymint-origin">
+        {{if proj.originAvailable}}
+            <span class="deploymint-success">${proj.origin}</span>
+        {{else}}
+            <span class="deploymint-error">${proj.origin} -- Unable to connect</span>
+        {{/if}}
+        </span>
+        <input type="button" name="edit-origin" value="Edit Origin" class="button-secondary" onclick="deploymint.editOrigin(${proj.id}, '${proj.origin}')" />
+    </div>
     {{/if}}
     {{if proj.project_uuid}}
     <div>UUID: ${proj.project_uuid}</div>

@@ -486,6 +486,29 @@ window['deploymint'] = {
     },
     deployFinal: function(fromid, toid, msg){
 
+    },
+
+    editOrigin : function(projectId, origin)
+    {
+        var self = this;
+        var o = window.prompt("Enter new origin", origin);
+        var d = this.working();
+        jQuery.ajax({
+            type: "POST",
+            url: DeployMintVars.ajaxURL,
+            dataType: "json",
+            data: {
+                action: "deploymint_updateOrigin",
+                projectId: projectId,
+                origin: o
+                },
+            success: function(resp){
+                d.done();
+                self.reloadProjects();
+            },
+            error: function(xhr, ajo, err){
+            }
+        });
     }
 
 };

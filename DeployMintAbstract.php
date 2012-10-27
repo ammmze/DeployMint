@@ -54,6 +54,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
         add_action('wp_ajax_deploymint_addBlogToProject', array($this, 'actionAddBlogToProject'));
         add_action('wp_ajax_deploymint_removeBlogFromProject', array($this, 'actionRemoveBlogFromProject'));
+        add_action('wp_ajax_deploymint_updateOrigin', array($this, 'actionUpdateOrigin'));
 
         add_action('wp_ajax_deploymint_updateCreateSnapshot', array($this, 'actionGetProjectBlogs'));
         add_action('wp_ajax_deploymint_createSnapshot', array($this, 'actionCreateSnapshot'));
@@ -260,6 +261,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     public function actionManageProject($id)
     {
+        extract($this->getOptions(), EXTR_OVERWRITE);
         if (!$this->allOptionsSet()) {
             return $this->actionOptions();
         }
@@ -268,8 +270,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
             echo '<div class="wrap"><h2 class="depmintHead">Please visit the options page and configure all options</h2></div>';
             return;
         }
-        $res = $this->pdb->get_results($this->pdb->prepare("SELECT * FROM dep_projects WHERE id=%d AND deleted=0", $id), ARRAY_A);
-        $proj = $res[0];
+        $proj = $this->getProject($id);
+        $dir = $datadir . $proj['dir'] . '/';
+        DeployMintProjectTools::setRemote($dir, $proj['origin']);
+        if (strlen($proj['origin']) > 0 && !DeployMintProjectTools::connectedToRemote($dir)) {
+            $this->showMessage("Please ensure that your project data directory ($dir) has access to its remote repository at {$proj['origin']}");
+            return;
+        }
         include 'views/manageProject.php';
     }
 
@@ -384,9 +391,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
     public function actionReloadProjects()
     {
         $this->checkPerms();
+        extract($this->getOptions(), EXTR_OVERWRITE);
         try {
             $projects = $this->getProjects();
             for ($i = 0; $i < sizeof($projects); $i++) {
+                $dir = $datadir . $projects[$i]['dir'] . '/';
+                DeployMintProjectTools::setRemote($dir, $projects[$i]['origin']);
+                $projects[$i]['originAvailable'] = DeployMintProjectTools::connectedToRemote($dir);
                 $projects[$i]['memberBlogs'] = $this->getProjectBlogs($projects[$i]['id']);
                 $projects[$i]['nonmemberBlogs'] = $this->getBlogsNotInProject($projects[$i]['id']);
                 $projects[$i]['numNonmembers'] = sizeof($projects[$i]['nonmemberBlogs']);
@@ -424,6 +435,29 @@ abstract class DeployMintAbstract implements DeployMintInterface
             die(json_encode(array('err' => $e->getMessage())));
         }
         
+    }
+
+    public function actionUpdateOrigin()
+    {
+        $this->checkPerms();
+        try {
+            if ($this->updateOrigin($_POST['projectId'], $_POST['origin'])) {
+                die(json_encode(array('ok' => 1)));
+            }
+        } catch (Exception $e){
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+        
+    }
+
+    protected function updateOrigin($projectId, $origin)
+    {
+        $opt = $this->getOptions();
+        $proj = $this->getProject($projectId);
+        $dir = $opt['datadir'] . $proj['dir'] . '/';
+        $this->pdb->update('dep_projects', array('origin'=>$origin), array('id'=>$projectId));
+        DeployMintProjectTools::setRemote($dir, $origin);
+        return true;
     }
 
     public function actionGetProjectBlogs()

@@ -75,3 +75,9 @@ table.deploymint-blogs td{
     background-position: 10px center;
     min-height: 48px;
 }
+.deploymint-error {
+    color: #F00;
+}
+.deploymint-success {
+    color: #0A0;
+}

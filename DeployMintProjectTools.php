@@ -42,6 +42,29 @@ class DeployMintProjectTools
         return in_array($remoteName, self::getRemoteNames($dir));
     }
 
+    public static function connectedToRemote($dir, $remoteName='origin')
+    {
+        $res = self::fetch($dir, $remoteName);
+        if (preg_match('/fatal/', $res)) {
+            return false;
+        }
+        return true;
+    }
+
+    public static function setRemote($dir, $url, $remoteName='origin')
+    {
+        if (strlen($url) == 0 || $url == null) {
+            self::git("remote remove $remoteName", $dir);
+        } else {
+            if (self::remoteExists($dir, $remoteName)) {
+                self::git("remote set-url $remoteName $url", $dir);
+            } else {
+                self::git("remote add $remoteName $url", $dir);
+            }
+        }
+        
+    }
+
     public static function fetch($dir, $remoteName='origin')
     {
         if (self::remoteExists($dir, $remoteName)) {
