@@ -90,6 +90,6 @@ include dirname(__FILE__) . '/widgets.php';
     </tr>
     </table>
     <p class="submit">
-        <input type="submit" class="button-primary" value="<?php _e('Save Changes') ?>" onclick="deploymint.updateOptions({git: jQuery('#sdPathToGit').val(), mysql: jQuery('#sdPathToMysql').val(), mysqldump: jQuery('#sdPathToMysqldump').val(), rsync: jQuery('#sdPathToRsync').val(), datadir: jQuery('#sdPathToDataDir').val(), numBackups: jQuery('#sdNumBackups').val(), temporaryDatabase: jQuery('#sdTemporaryDatabase').val(), backupDatabase: jQuery('#sdBackupDatabase').val(), backupDisabled: jQuery('#sdBackupDisabled').attr('checked'),preserveBlogName: (jQuery('#sdPreserveBlogName').is(':checked') ? 1 : 0)}); return false;" />
+        <input type="submit" class="button-primary" value="<?php _e('Save Changes') ?>" onclick="deploymint.updateOptions({git: jQuery('#sdPathToGit').val(), mysql: jQuery('#sdPathToMysql').val(), mysqldump: jQuery('#sdPathToMysqldump').val(), rsync: jQuery('#sdPathToRsync').val(), datadir: jQuery('#sdPathToDataDir').val(), numBackups: jQuery('#sdNumBackups').val(), temporaryDatabase: jQuery('#sdTemporaryDatabase').val(), backupDatabase: jQuery('#sdBackupDatabase').val(), backupDisabled: (jQuery('#sdBackupDisabled').is(':checked') ? 1 : 0),preserveBlogName: (jQuery('#sdPreserveBlogName').is(':checked') ? 1 : 0)}); return false;" />
     </p>
 </div>
