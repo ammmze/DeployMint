@@ -509,10 +509,18 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
         $git1 = DeployMintTools::mexec("$git init ; $git add . ", $finaldir);
         if (strlen($origin) > 0) {
-            DeployMintTools::mexec("$git remote add origin $origin ; $git fetch origin", $finaldir);
+            DeployMintProjectTools::setRemote($finaldir, $origin);
+            DeployMintProjectTools::fetch($finaldir);
         }
-        $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir, origin, project_uuid) VALUES (unix_timestamp(), %s, %s, %s, %s)", $name, $fulldir, $origin, $uuid));
-        return true;
+        $insertToDb = $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir, origin, project_uuid) VALUES (unix_timestamp(), %s, %s, %s, %s)", $name, $fulldir, $origin, $uuid));
+        if ($insertToDb) {
+            return true;
+        } else {
+           rmdir($finaldir);
+           throw new Exception($this->pdb->last_error);
+           
+         }
+        
     }
 
     protected function removeProject($id)
