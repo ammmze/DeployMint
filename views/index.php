@@ -36,7 +36,7 @@ include dirname(__FILE__) . '/widgets.php';
     {{if proj.origin}}
     <div>
         Origin: 
-        <span class="deploymint-origin">
+        <span class="deploymint-origin" title="${proj.originAvailableMessage}">
         {{if proj.originAvailable}}
             <span class="deploymint-success">${proj.origin}</span>
         {{else}}

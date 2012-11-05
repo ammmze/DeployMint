@@ -397,7 +397,9 @@ abstract class DeployMintAbstract implements DeployMintInterface
             for ($i = 0; $i < sizeof($projects); $i++) {
                 $dir = $datadir . $projects[$i]['dir'] . '/';
                 DeployMintProjectTools::setRemote($dir, $projects[$i]['origin']);
-                $projects[$i]['originAvailable'] = DeployMintProjectTools::connectedToRemote($dir);
+                $fetch = DeployMintProjectTools::fetch($dir);
+                $projects[$i]['originAvailable'] = !DeployMintProjectTools::isFatalResponse($fetch);
+                $projects[$i]['originAvailableMessage'] = trim($fetch);
                 $projects[$i]['memberBlogs'] = $this->getProjectBlogs($projects[$i]['id']);
                 $projects[$i]['nonmemberBlogs'] = $this->getBlogsNotInProject($projects[$i]['id']);
                 $projects[$i]['numNonmembers'] = sizeof($projects[$i]['nonmemberBlogs']);

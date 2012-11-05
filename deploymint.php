@@ -12,8 +12,6 @@ Version: 1.0-dev
 Author URI: http://markmaunder.com/
 */
 
-
-
 require('deploymintClass.php');
 require 'DeployMintInterface.php';
 require 'DeployMintAbstract.php';

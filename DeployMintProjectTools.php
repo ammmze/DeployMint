@@ -17,10 +17,7 @@ class DeployMintProjectTools
     public static function isGitRepo($dir)
     {
         $res = self::git("branch", $dir);
-        if (preg_match('/fatal/', $res)) {
-            return false;
-        }
-        return true;
+        return !self::isFatalResponse($res);
     }
 
     public static function getRemoteNames($dir)
@@ -45,10 +42,7 @@ class DeployMintProjectTools
     public static function connectedToRemote($dir, $remoteName='origin')
     {
         $res = self::fetch($dir, $remoteName);
-        if (preg_match('/fatal/', $res)) {
-            return false;
-        }
-        return true;
+        return !self::isFatalResponse($res);
     }
 
     public static function setRemote($dir, $url, $remoteName='origin')
@@ -98,5 +92,10 @@ class DeployMintProjectTools
     {
         $git = self::$git;
         return DeployMintTools::mexec("$git $cmd 2>&1", $dir);
+    }
+
+    public static function isFatalResponse($response)
+    {
+        return preg_match('/fatal/', $response);
     }
 }
