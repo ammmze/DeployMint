@@ -39,21 +39,21 @@ class DeployMintMultiSite extends DeployMintAbstract
         }
     }
 
-    protected function createSnapshot($projectId, $blogId, $name, $desc)
+    protected function createSnapshot($projectId, $blogId, $name, $desc, $username=null, $password=null)
     {
-        $valid = parent::createSnapshot($projectId, $blogId, $name, $desc);
+        $valid = parent::createSnapshot($projectId, $blogId, $name, $desc, $username, $password);
         if ($valid) {
-            $this->doSnapshot($projectId, $blogId, $name, $desc);
+            return $this->doSnapshot($projectId, $blogId, $name, $desc);
         } else {
             throw new Exception("Could not create snapshot. Details could not be validated");
         }
     }
 
-    protected function deploySnapshot($snapshot, $blogId, $projectId, $deployParts)
+    protected function deploySnapshot($snapshot, $blogId, $projectId, $username=null, $password=null, $deployParts=array())
     {
-        $valid = parent::deploySnapshot($snapshot, $blogId, $projectId, $deployParts);
+        $valid = parent::deploySnapshot($snapshot, $blogId, $projectId, $username, $password, $deployParts);
         if ($valid) {
-            $this->doDeploySnapshot($snapshot, $blogId, $projectId, $deployParts);
+            return $this->doDeploySnapshot($snapshot, $blogId, $projectId, $deployParts);
         } else {
             throw new Exception("Could not deploy snapshot. Details could not be validated");
         }
@@ -66,6 +66,7 @@ class DeployMintMultiSite extends DeployMintAbstract
         } else {
             $prefix = $this->pdb->base_prefix . $blogId . '_';
         }
+        return $prefix;
     }
 
     protected function doSnapshot($pid, $blogid, $name, $desc)
@@ -80,7 +81,7 @@ class DeployMintMultiSite extends DeployMintAbstract
             $this->ajaxError("That blog doesn't exist or is not a member of this project.");
         }
         
-        parent::doSnapshot($pid, $blogid, $name, $desc);
+        return parent::doSnapshot($pid, $blogid, $name, $desc);
     }
 
     protected function copyFilesToDataDir($blogId, $dest)

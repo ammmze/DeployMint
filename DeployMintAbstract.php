@@ -160,17 +160,20 @@ abstract class DeployMintAbstract implements DeployMintInterface
                     break;
                 }
                 if ($i > 4) {
-                    $this->ajaxError("We could not create a temporary database name after 5 tries. You may not have the create DB privelege.");
+                    throw new Exception("We could not create a temporary database name after 5 tries. You may not have the create DB privelege.");
                 }
             }
             $this->pdb->query($this->pdb->prepare("CREATE DATABASE " . $options['temporaryDatabase']));
             $options['temporaryDatabaseCreated'] = true;
         }
         $options['backupDatabaseCreated'] = false;
-        if ($createBackupDatabase && !$options['backupDisabled'] && $options['numBackups'] != 1) {
+        if ($createBackupDatabase && !$options['backupDisabled'] && ($options['numBackups'] != 1 || ($options['numBackups'] == 1 && $options['backupDatabase'] == ''))) {
             $dbPrefix = ($options['backupDatabase'] == '') ? 'depbak' : $options['backupDatabase'];
             $options['backupDatabase'] = $dbPrefix . '__' . preg_replace('/\./', '', microtime(true));
-            $this->pdb->query('CREATE DATABASE ' . $options['backupDatabase']) || $this->ajaxError('Could not create backup database. ' . mysql_error($dbh));
+            $success = $this->pdb->query('CREATE DATABASE ' . $options['backupDatabase']);
+            if ($succss === false){
+                throw new Exception('Could not create backup database. ' . mysql_error($dbh));
+            }
             $options['backupDatabaseCreated'] = true;
         }
         return $options;
@@ -1240,7 +1243,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         die(json_encode(array('desc' => $logOut)));
     }
 
-    public static function ajax_undoDeploy_callback()
+    public function ajax_undoDeploy_callback()
     {
         $this->checkPerms();
         $opt = $this->getOptions(true);

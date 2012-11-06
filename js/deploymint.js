@@ -373,7 +373,7 @@ window['deploymint'] = {
                     //self.alert("Deployed succesfully. The total time the database was locked was " + resp.lockTime + " seconds.");
                     self.alert("Deployed succesfully.");
                 } else {
-                    self.alert("An unknown error occurred taking your snapshot.");
+                    self.alert("An unknown error occurred deploying your snapshot.");
                     return;
                 }
             },
