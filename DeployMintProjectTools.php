@@ -62,7 +62,7 @@ class DeployMintProjectTools
     public static function fetch($dir, $remoteName='origin')
     {
         if (self::remoteExists($dir, $remoteName)) {
-            return self::git("fetch $remoteName", $dir);
+            return self::git("fetch $remoteName --prune", $dir);
         } else {
             return null;
         }
