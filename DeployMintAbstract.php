@@ -1213,7 +1213,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $res = $this->getProject($pid);
         $dir = $res['dir'];
         $fulldir = $datadir . $dir;
-        $bprefix = DeployMintProjectTools::remoteExists($dir) ? 'remotes/origin/' : '';
+        $bprefix = DeployMintProjectTools::remoteExists($fulldir) ? 'remotes/origin/' : '';
         $logOut = DeployMintTools::mexec("$git log -n 1 ${bprefix}${snapname} 2>&1", $fulldir);
         $logOut = preg_replace('/^commit [0-9a-fA-F]+[\r\n]+/', '', $logOut);
         if (preg_match('/fatal: bad default revision/', $logOut)) {
