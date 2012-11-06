@@ -46,7 +46,7 @@ window['deploymintSS'] = {
     },
     deploySnapshot: function(data){
         var self = this;
-        this.addCredentials(data, function(d){
+        this.addCredentials(data||{}, function(d){
             self.parent.deploySnapshot(d);
         });
     },

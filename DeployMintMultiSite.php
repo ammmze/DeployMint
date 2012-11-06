@@ -49,11 +49,11 @@ class DeployMintMultiSite extends DeployMintAbstract
         }
     }
 
-    protected function deploySnapshot($snapshot, $blogId, $projectId)
+    protected function deploySnapshot($snapshot, $blogId, $projectId, $deployParts)
     {
-        $valid = parent::deploySnapshot($snapshot, $blogId, $projectId);
+        $valid = parent::deploySnapshot($snapshot, $blogId, $projectId, $deployParts);
         if ($valid) {
-            $this->doDeploySnapshot($snapshot, $blogId, $projectId);
+            $this->doDeploySnapshot($snapshot, $blogId, $projectId, $deployParts);
         } else {
             throw new Exception("Could not deploy snapshot. Details could not be validated");
         }
@@ -89,9 +89,11 @@ class DeployMintMultiSite extends DeployMintAbstract
         DeployMintTools::mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/blogs.dir/$blogId/* $dest" . "blogs.dir/", './', null, 60);
     }
 
-    protected function copyFilesFromDataDir($blogId, $src)
+    protected function copyFilesFromDataDir($blogId, $src, $deployParts=array())
     {
-        extract($this->getOptions(), EXTR_OVERWRITE);
-        $files = DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogId/", './', null, 60);
+        extract($this->getOptions(), EXTR_OVERWRITE);        
+        if (isset($deployParts[self::DP_DIR_UPLOADS])) {
+            DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogId/", './', null, 60);
+        }
     }
 }

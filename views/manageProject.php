@@ -12,17 +12,20 @@ include dirname(__FILE__) . '/widgets.php';
 <h2 class="depmintHead">DepoyMint Project: &#8220;<?php echo $proj['name'] ?>&#8221;</h2> 
 
 <h3>Create a snapshot from a blog:</h3>
-<div id="sdCreateSnapshot"></div>
+<form id="sdCreateSnapshot"></form>
 
 <h3>Deploy a snapshot to a blog:</h3>
-<div id="sdDeploySnapshot"></div>
+<form id="sdDeploySnapshot">
+</form>
 
 </div>
 <script type="text/x-jquery-tmpl" id="sdDeploySnapTmpl">
+<input type="hidden" name="action" value="deploymint_deploySnapshot" />
+<input type="hidden" name="projectid" value="<?php echo $proj['id'];?>" />
 <table class="form-table deploymintTable">
 <tr>
     <td>Select a snapshot to deploy:</td>
-    <td><select id="sdDepSnapshot" onchange="deploymint.updateSnapDesc(projectid, jQuery(this).val()); return true;">
+    <td><select id="sdDepSnapshot" name="name" onchange="deploymint.updateSnapDesc(projectid, jQuery(this).val()); return true;">
         {{if snapshots.length}}
         {{each(i,snap) snapshots}}
         <option value="${snap.name}"{{if selectedSnap == snap.name}} selected{{/if}}>${snap.name} - Created on: ${snap.created}</option>
@@ -40,8 +43,19 @@ include dirname(__FILE__) . '/widgets.php';
     </td>
 </tr>
 <tr>
+    <td>Select what to deploy:</td>
+    <td>
+    {{each(i,opt) deployParts}}
+        <label class="deployPart">
+            <input type="checkbox" value="1" checked="checked" name="deployParts[${i}]" />
+            ${opt}
+        </label>
+    {{/each}}
+    </td>
+</tr>
+<tr>
     <td>Select a blog to deploy to:</td>
-    <td><select id="sdDepBlog">
+    <td><select id="sdDepBlog" name="blogid">
 {{each(i,blog) blogs}}
 <option value="${blog.blog_id}">${blog.domain}${blog.path}</option>
 {{/each}}
@@ -49,7 +63,7 @@ include dirname(__FILE__) . '/widgets.php';
     </td>
 </tr>
 <tr><td colspan="2">
-    <input type="button" value="Deploy this snapshot to the selected blog" onclick="deploymint.deploySnapshot({projectid:projectid, blogid:jQuery('#sdDepBlog').val(), name:jQuery('#sdDepSnapshot').val()}); return false;" class="button-primary" />
+    <input type="button" value="Deploy this snapshot to the selected blog" onclick="deploymint.deploySnapshot(jQuery('#sdDeploySnapshot').serializeObject()); return false;" class="button-primary" />
 </td></tr>
 </table>
 </script>

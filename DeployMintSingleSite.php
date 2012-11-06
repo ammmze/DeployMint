@@ -2,6 +2,8 @@
 
 class DeployMintSingleSite extends DeployMintAbstract
 {
+    const DP_DIR_THEMES     = 'dir_themes';
+    const DP_DIR_PLUGINS    = 'dir_plugins';
 
     protected $isXmlrpcRequest = false;
 
@@ -147,7 +149,7 @@ class DeployMintSingleSite extends DeployMintAbstract
             if ($auth === true) {
                 $project = $this->getProjectByUUID($data['projectId']);
                 $blog    = $this->getBlogByUUID($data['blogId']);
-                $this->doDeploySnapshot($data['snapshot'], $blog['id'], $project['id']);
+                $this->doDeploySnapshot($data['snapshot'], $blog['id'], $project['id'], $data['deployParts']);
             } else {
                 throw new Exception(print_r($auth,true));
             }
@@ -355,7 +357,6 @@ class DeployMintSingleSite extends DeployMintAbstract
     protected function doSnapshot($projectId, $blogId, $name, $desc)
     {
         parent::doSnapshot($projectId, $blogId, $name, $desc);
-        //throw new Exception('Snapshot creation is not fully implemented yet');
     }
 
     protected function copyFilesToDataDir($blogId, $dest)
@@ -366,15 +367,22 @@ class DeployMintSingleSite extends DeployMintAbstract
         DeployMintTools::mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/themes/ $dest"  . "themes 2>&1" , './', null, 60);
     }
 
-    protected function copyFilesFromDataDir($blogId, $src)
+    protected function copyFilesFromDataDir($blogId, $src, $deployParts=array())
     {
         extract($this->getOptions(), EXTR_OVERWRITE);
-        $files = DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "uploads/* " . WP_CONTENT_DIR . "/uploads/ 2>&1", './', null, 60);
-        $files = DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "plugins/* " . WP_CONTENT_DIR . "/plugins/ 2>&1", './', null, 60);
-        $files = DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "themes/* "  . WP_CONTENT_DIR . "/themes/ 2>&1" , './', null, 60);
+
+        if (isset($deployParts[self::DP_DIR_UPLOADS])) {
+            DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "uploads/* " . WP_CONTENT_DIR . "/uploads/ 2>&1", './', null, 60);
+        }
+        if (isset($deployParts[self::DP_DIR_PLUGINS])) {
+            DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "plugins/* " . WP_CONTENT_DIR . "/plugins/ 2>&1", './', null, 60);
+        }
+        if (isset($deployParts[self::DP_DIR_THEMES])) {
+            DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "themes/* "  . WP_CONTENT_DIR . "/themes/ 2>&1" , './', null, 60);
+        }
     }
 
-    protected function deploySnapshot($snapshot, $blogId, $projectId, $username=null, $password=null)
+    protected function deploySnapshot($snapshot, $blogId, $projectId, $username=null, $password=null, $deployParts=array())
     {
         $blog = $this->getBlog($blogId);
         if ($blog['ignore_cert']==1){
@@ -388,6 +396,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 'snapshot'  => $snapshot,
                 'blogId'    => $blog['blog_uuid'],
                 'projectId' => $project['project_uuid'],
+                'deployParts' => $deployParts,
             );
             return $this->doXmlrpcRequest($data, 'deploymint.deploySnapshot', $blog['blog_url'] . '/xmlrpc.php', $username, $password);
         } else {
@@ -434,5 +443,16 @@ class DeployMintSingleSite extends DeployMintAbstract
             throw new Exception('Request failed. Remote responded with: ' . $response['error']);
         }
         return true;
+    }
+
+    /**
+     * Gets the various aspects that could potentially be included in the deployment
+     */
+    protected function getAvailableDeployParts()
+    {
+        return array_merge(parent::getAvailableDeployParts(), array(
+            self::DP_DIR_THEMES     => 'Theme Files',
+            self::DP_DIR_PLUGINS    => 'Plugin Files',
+        ));
     }
 }
