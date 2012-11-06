@@ -1,14 +1,14 @@
 <?php
 /**
  * @package DeployMint 
- * @version 1.0-beta
+ * @version 1.0-beta-1
  */
 /*
 Plugin Name: DeployMint
 Plugin URI: http://markmaunder.com/
 Description: DeployMint: A staging and deployment system for Wordpress 
 Author: Mark Maunder <mmaunder@gmail.com>
-Version: 1.0-beta
+Version: 1.0-beta-1
 Author URI: http://markmaunder.com/
 */
 
