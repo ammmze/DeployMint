@@ -98,4 +98,9 @@ class DeployMintProjectTools
     {
         return preg_match('/fatal/', $response);
     }
+
+    public static function deleteRemoteBranch($dir, $branch, $remote='origin')
+    {
+        return self::git("git push $remote --delete $branch");
+    }
 }
