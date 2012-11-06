@@ -1,21 +1,33 @@
 <?php
 /**
  * @package DeployMint 
- * @version 0.1
+ * @version 1.0-beta
  */
 /*
 Plugin Name: DeployMint
 Plugin URI: http://markmaunder.com/
 Description: DeployMint: A staging and deployment system for Wordpress 
 Author: Mark Maunder <mmaunder@gmail.com>
-Version: 0.1
+Version: 1.0-beta
 Author URI: http://markmaunder.com/
 */
 
-
-
 require('deploymintClass.php');
-register_activation_hook(__FILE__, 'deploymint::installPlugin');
-deploymint::setup();
+require 'DeployMintInterface.php';
+require 'DeployMintAbstract.php';
+require 'DeployMintTools.php';
+require 'DeployMintProjectTools.php';
+if (is_multisite()) {
+    require 'DeployMintMultiSite.php';
+    $deployMintPlugin = new DeployMintMultiSite();
+} else {
+    require 'DeployMintSingleSite.php';
+    $deployMintPlugin = new DeployMintSingleSite();
+}
+
+register_activation_hook(__FILE__, array($deployMintPlugin,'install'));
+register_deactivation_hook(__FILE__, array($deployMintPlugin,'uninstall'));
+        
+$deployMintPlugin->setup();
 
 ?>

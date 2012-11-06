@@ -50,3 +50,37 @@ tr.note th {
     color: #555;
     padding-top: 0;
 }
+
+table.deploymint-blogs {
+    border: 1px solid #EFEFEF;
+}
+table.deploymint-blogs th{
+    text-align: left;
+    border-bottom: 1px solid #EFEFEF;
+}
+table.deploymint-blogs th,
+table.deploymint-blogs td{
+    padding: 3px 5px;
+}
+
+.DeployMint-Modal {
+    background: #FFF;
+    max-width: 260px;
+    padding: 20px;
+}
+#DeployMint-Working {
+    padding-left: 68px;
+    background-image: url(../images/working.gif);
+    background-repeat: no-repeat;
+    background-position: 10px center;
+    min-height: 48px;
+}
+.deploymint-error {
+    color: #F00;
+}
+.deploymint-success {
+    color: #0A0;
+}
+.deployPart {
+    margin-right: 10px;
+}
