@@ -1,12 +1,7 @@
 DeployMint
 ==========
 
-This branch is focused on getting DeployMint to work in single site (default) wordpress mode, as opposed to multi-site/network (MU) wordpress mode. Note: Multi-site will continue to be supported.
-
-The main differences are:
-* Each project data directory must be tied to a remote git repository that is accessible to all blogs/sites within the project.
-* Uses XML-RPC to communicate with other blogs/sites
-	* Note: It does not transmit your database and other files via XML-RPC, it only transmit small bits of information, such as the name of the snapshot to deploy, and which project to read from. It also transmits the name of the project and blog url's to each blog within the project anytime a blog is add/removed from the project.
+DeployMint allows you to create and deploy snapshots of your wordpress blog using GIT. This makes it extremely easy to create content, adjust themes, etc in a development environment, and then move it over to a staging environment, and then on to production. This works with both WordPress Multi-Site and Single-Site.
 
 
 Installation
@@ -58,3 +53,9 @@ Emergency Revert
 ----------------
 
 This is currently only available in the multi-site mode. This will restore your entire wordpress network as it was prior to deploying a snapshot.
+
+
+License
+-------
+
+This plugin uses the [GNU General Public License v3.0](http://www.gnu.org/licenses/gpl-3.0.html)
