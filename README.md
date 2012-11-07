@@ -3,6 +3,8 @@ DeployMint
 
 DeployMint allows you to create and deploy snapshots of your wordpress blog using GIT. This makes it extremely easy to create content, adjust themes, etc in a development environment, and then move it over to a staging environment, and then on to production. This works with both WordPress Multi-Site and Single-Site.
 
+This is a forked version of [DeployMint from Mark Maunder](http://markmaunder.com/2011/08/19/deploymint-a-staging-and-deployment-system-for-wordpress)
+
 
 Installation
 ------------
