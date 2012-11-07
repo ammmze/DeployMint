@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Deploymint by ammmze</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/main.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+
+      <header>
+        <h1>Deploymint</h1>
+        <p>A staging and deployment system for WordPress</p>
+      </header>
+
+      <div id="banner">
+        <span id="logo"></span>
+
+        <a href="https://github.com/ammmze/DeployMint" class="button fork"><strong>View On GitHub</strong></a>
+        <div class="downloads">
+          <span>Downloads:</span>
+          <ul>
+            <li><a href="https://github.com/ammmze/DeployMint/zipball/master" class="button">ZIP</a></li>
+            <li><a href="https://github.com/ammmze/DeployMint/tarball/master" class="button">TAR</a></li>
+          </ul>
+        </div>
+      </div><!-- end banner -->
+
+    <div class="wrapper">
+      <nav>
+        <ul></ul>
+      </nav>
+      <section>
+        <h1>DeployMint</h1>
+
+<p>DeployMint allows you to create and deploy snapshots of your wordpress blog using GIT. This makes it extremely easy to create content, adjust themes, etc in a development environment, and then move it over to a staging environment, and then on to production.</p>
+
+<h2>Installation</h2>
+
+<ul>
+<li>Place all files within wp-content/plugins/DeployMint</li>
+<li>Within WordPress Admin, go to Plugins and Activate the plugin 'DeployMint'</li>
+<li>Update DeployMint options
+
+<ul>
+<li>In multi-site mode, the options are in the network admin, and available only to network admins</li>
+<li>In single-site mode, the options are located in the top-level wordpress admin and are available only to admins.</li>
+</ul>
+</li>
+</ul><h2>Managing Blogs</h2>
+
+<p>This is only applicable to single-site mode (when in multi-site mode, we use the blogs as defined by current wordpress network). In single-site mode, we need to define the blogs that should be available to us.</p>
+
+<ul>
+<li>Enter the name for the blog (currently doesn't really do anything for you, since we still just show the url)</li>
+<li>Optionaly ignore SSL certificate errors when making an XML-RPC request.</li>
+<li>Enter the Blog URL. You may optionally omit the 'http://' portion. If omitted, we will use 'https://'</li>
+</ul><h2>Creating a Project</h2>
+
+<p>A Project is a group of blogs which will share snapshots. You will be able to create a snapshot of one blog within the project, and then deploy that snapshot to another blog within that same project.</p>
+
+<ul>
+<li>From the DeployMint admin, go to 'Manage Projects'</li>
+<li>Enter a name for the project...anything you like</li>
+<li>Enter the Git Origin location
+
+<ul>
+<li>This is where we will fetch/pull/push snapshots to. This should be accessible by all blogs within the project. If you are running in Multi-Site mode, you don't <strong>need</strong> to use this option.</li>
+</ul>
+</li>
+<li>Add whichever blogs you want to the project.
+
+<ul>
+<li>Note: When in single-site mode, you will prompted for a username and password. This username and password should be valid for all blogs within the project. (For those who want to know what is happening here...we are making an XML-RPC request to all the blogs within the project with the updated project information, including the blogs that are associated with the project)</li>
+</ul>
+</li>
+</ul><h2>Creating a Snapshot</h2>
+
+<p>Once a project is all setup, you may go to the project page, where you can select the blog to create snapshot. This basically makes a dump of the primary wordpress tables and copys all the themes, plugins and uploads/blogs.dir and stores it all in a branch within the git repo. If an origin is specified, it is also pushed to the origin. Note: themes and plugins are only copied in single-site mode, since in multi-site they are all shared between sites. When in single-site mode, you will be asked for a login, this is the login of the blog you are taking the snapshot of.</p>
+
+<h2>Deploying a Snapshot</h2>
+
+<p>Once a snapshot has been created, you will see it in the list of available snapshots. You can select what to deploy (database tables, uploads, themes or plugins). Then specify which blog to deploy to. When in single-site mode, you will be asked for a login, this is the login of the blog you are deploying to.</p>
+
+<h2>Emergency Revert</h2>
+
+<p>This is currently only available in the multi-site mode. This will restore your entire wordpress network as it was prior to deploying a snapshot.</p>
+      </section>
+      <footer>
+        <p>Project maintained by <a href="https://github.com/ammmze">ammmze</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="http://twitter.com/#!/michigangraham">mattgraham</a></small></p>
+      </footer>
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-36186115-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+  </body>
+</html>
