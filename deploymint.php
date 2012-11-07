@@ -5,11 +5,11 @@
  */
 /*
 Plugin Name: DeployMint
-Plugin URI: http://markmaunder.com/
-Description: DeployMint: A staging and deployment system for Wordpress 
-Author: Mark Maunder <mmaunder@gmail.com>
+Plugin URI: https://github.com/ammmze/DeployMint
+Description: DeployMint: A staging and deployment system for Wordpress. Forked from Mark Maunder's version at markmaunder.com
+Author: Branden Cash <bcash@parchment.com>
 Version: 2.0.0
-Author URI: http://markmaunder.com/
+Author URI: https://github.com/ammmze
 */
 
 require('deploymintClass.php');
