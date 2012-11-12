@@ -213,18 +213,14 @@ window['deploymint'] = {
         }
 
     },
-    createProject: function(name, origin){
+    createProject: function(data){
         var self = this;
         var d = this.working();
         jQuery.ajax({
             type: "POST",
             url: DeployMintVars.ajaxURL,
             dataType: "json",
-            data: {
-                action: "deploymint_createProject",
-                name: name,
-                origin: origin || ''
-                },
+            data: data,
             success: function(resp){
                 d.done();
                 if(resp.err){
@@ -534,6 +530,29 @@ window['deploymint'] = {
                 action: "deploymint_updateOrigin",
                 projectId: projectId,
                 origin: o
+                },
+            success: function(resp){
+                d.done();
+                self.reloadProjects();
+            },
+            error: function(xhr, ajo, err){
+            }
+        });
+    },
+
+    editTables : function(projectId, tables)
+    {
+        var self = this;
+        var o = window.prompt("Enter new tables (command separated and include table prefix, if any)", tables);
+        var d = this.working();
+        jQuery.ajax({
+            type: "POST",
+            url: DeployMintVars.ajaxURL,
+            dataType: "json",
+            data: {
+                action: "deploymint_updateTables",
+                projectId: projectId,
+                tables: o
                 },
             success: function(resp){
                 d.done();

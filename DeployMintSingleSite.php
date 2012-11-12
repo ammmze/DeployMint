@@ -194,10 +194,10 @@ class DeployMintSingleSite extends DeployMintAbstract
         if ($myProject == null) {
             if (!$this->projectExists($project['name'])) {
                 // Create project
-                $this->createProject($project['name'], $project['origin'], $project['project_uuid']);
+                $this->createProject($project['name'], $project['origin'], $project['tables'], $project['project_uuid']);
             } else {
                 // Come up with new name and create the project
-                $this->createProject($project['name'] . '_' . time(), $project['origin'], $project['project_uuid']);
+                $this->createProject($project['name'] . '_' . time(), $project['origin'], $project['tables'], $project['project_uuid']);
             }
             $myProject = $this->getProjectByUUID($project['project_uuid']);
         }

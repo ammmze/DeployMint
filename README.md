@@ -57,6 +57,20 @@ Emergency Revert
 This is currently only available in the multi-site mode. This will restore your entire wordpress network as it was prior to deploying a snapshot.
 
 
+Changelog
+---------
+
+**2.1.0**
+* Added ability to specify additional tables to include in the snapshots
+* Make use of WordPress dbDelta method to update database schema
+
+**2.0.0**
+* First released version with single site support
+
+**1.2**
+* Latest version by Mark Maunder
+
+
 License
 -------
 

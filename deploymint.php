@@ -1,14 +1,14 @@
 <?php
 /**
  * @package DeployMint 
- * @version 2.0.0
+ * @version 2.1.0
  */
 /*
 Plugin Name: DeployMint
 Plugin URI: https://github.com/ammmze/DeployMint
 Description: DeployMint: A staging and deployment system for Wordpress. Forked from Mark Maunder's version at <a href="http://markmaunder.com" target="_blank">markmaunder.com</a>
 Author: Branden Cash <bcash@parchment.com>
-Version: 2.0.0
+Version: 2.1.0
 Author URI: https://github.com/ammmze
 License: GPLv3 or later
 */
@@ -28,6 +28,7 @@ if (is_multisite()) {
 
 register_activation_hook(__FILE__, array($deployMintPlugin,'install'));
 register_deactivation_hook(__FILE__, array($deployMintPlugin,'uninstall'));
+add_action('plugins_loaded', array($deployMintPlugin,'checkUpdate'));
         
 $deployMintPlugin->setup();
 

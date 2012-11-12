@@ -28,6 +28,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
         'backupDatabase'    => '',
     );
 
+    protected $dbVersion = "1.0";
+
     public function __construct()
     {
         global $wpdb;
@@ -46,6 +48,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
         
     }
 
+    public function checkUpdate()
+    {
+        if (get_site_option('deploymint_db_version') != $this->dbVersion) {
+            $this->createSchema();
+        }
+    }
+
     public function setup()
     {
         add_action('init', array($this, 'initHandler'));
@@ -58,6 +67,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         add_action('wp_ajax_deploymint_addBlogToProject', array($this, 'actionAddBlogToProject'));
         add_action('wp_ajax_deploymint_removeBlogFromProject', array($this, 'actionRemoveBlogFromProject'));
         add_action('wp_ajax_deploymint_updateOrigin', array($this, 'actionUpdateOrigin'));
+        add_action('wp_ajax_deploymint_updateTables', array($this, 'actionUpdateTables'));
 
         add_action('wp_ajax_deploymint_updateCreateSnapshot', array($this, 'actionGetProjectBlogs'));
         add_action('wp_ajax_deploymint_createSnapshot', array($this, 'actionCreateSnapshot'));
@@ -81,44 +91,59 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function createSchema()
     {
-        $success = $this->pdb->query("CREATE TABLE IF NOT EXISTS dep_options (
-            name varchar(100) NOT NULL PRIMARY KEY,
-            val varchar(255) default ''
-            ) default charset=utf8");
-        if (!$success) {
-            die($this->pdb->print_error());
+        $schemaVersion = get_option("deploymint_db_version", null);
+
+        if ($schemaVersion != $this->dbVersion) {
+
+            $tables = array();
+
+            $tables['options'] = "CREATE TABLE dep_options (
+                name varchar(100) NOT NULL PRIMARY KEY,
+                val varchar(255) default ''
+                ) default charset=utf8";
+
+            $tables['projects'] = "CREATE TABLE dep_projects (
+                id int UNSIGNED NOT NULL auto_increment PRIMARY KEY,
+                ctime int UNSIGNED NOT NULL,
+                name varchar(100) NOT NULL,
+                dir varchar(120) NOT NULL,
+                origin varchar(255) NOT NULL,
+                tables varchar(255) NOT NULL,
+                project_uuid varchar(36) NOT NULL,
+                deleted tinyint UNSIGNED default 0
+            ) default charset=utf8";
+
+            $tables['members'] = "CREATE TABLE dep_members (
+                blog_id int UNSIGNED NOT NULL,
+                project_id int UNSIGNED NOT NULL,
+                deleted tinyint UNSIGNED default 0,
+                KEY k1(blog_id, project_id)
+            ) default charset=utf8";
+
+            $tables['blogs'] = "CREATE TABLE dep_blogs (
+                id int UNSIGNED NOT NULL auto_increment PRIMARY KEY,
+                blog_url varchar(255) NOT NULL,
+                blog_name varchar(255) NOT NULL,
+                blog_uuid varchar(36) NOT NULL,
+                ignore_cert tinyint UNSIGNED default 0,
+                deleted tinyint UNSIGNED default 0
+            ) default charset=utf8";
+
+            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+            foreach($tables as $sql) {
+                dbDelta($sql);
+                /*$success = $this->pdb->query($sql);
+                if (!$success) {
+                    die($this->pdb->print_error());
+                }*/
+            }
         }
-        $success = $this->pdb->query("CREATE TABLE IF NOT EXISTS dep_projects (
-            id int UNSIGNED NOT NULL auto_increment PRIMARY KEY,
-            ctime int UNSIGNED NOT NULL,
-            name varchar(100) NOT NULL,
-            dir varchar(120) NOT NULL,
-            origin varchar(255) NOT NULL,
-            project_uuid varchar(36) NOT NULL,
-            deleted tinyint UNSIGNED default 0
-        ) default charset=utf8");
-        if (!$success) {
-            die($this->pdb->print_error());
-        }
-        $success = $this->pdb->query("CREATE TABLE IF NOT EXISTS dep_members (
-            blog_id int UNSIGNED NOT NULL,
-            project_id int UNSIGNED NOT NULL,
-            deleted tinyint UNSIGNED default 0,
-            KEY k1(blog_id, project_id)
-        ) default charset=utf8");
-        if (!$success) {
-            die($this->pdb->print_error());
-        }
-        $success = $this->pdb->query("CREATE TABLE IF NOT EXISTS dep_blogs (
-            id int UNSIGNED NOT NULL auto_increment PRIMARY KEY,
-            blog_url varchar(255) NOT NULL,
-            blog_name varchar(255) NOT NULL,
-            blog_uuid varchar(36) NOT NULL,
-            ignore_cert tinyint UNSIGNED default 0,
-            deleted tinyint UNSIGNED default 0
-        ) default charset=utf8");
-        if (!$success) {
-            die($this->pdb->print_error());
+
+        if ($schemaVersion == null) {
+            add_option("deploymint_db_version", $this->dbVersion);
+        } else {
+            update_option("deploymint_db_version", $this->dbVersion);
         }
     }
 
@@ -372,7 +397,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $name = $_POST['name'];
         $origin = $_POST['origin'];
         try {
-            if ($this->createProject($name, $origin)) {
+            if ($this->createProject($name, $origin, $tables)) {
                 die(json_encode(array('ok' => 1)));
             }
         } catch (Exception $e) {
@@ -468,6 +493,26 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return true;
     }
 
+    public function actionUpdateTables()
+    {
+        $this->checkPerms();
+        try {
+            if ($this->updateTables($_POST['projectId'], $_POST['tables'])) {
+                die(json_encode(array('ok' => 1)));
+            }
+        } catch (Exception $e){
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+        
+    }
+
+    protected function updateTables($projectId, $tables)
+    {
+        $proj = $this->getProject($projectId);
+        $this->pdb->update('dep_projects', array('tables'=>$tables), array('id'=>$projectId));
+        return true;
+    }
+
     public function actionGetProjectBlogs()
     {
         $this->checkPerms();
@@ -485,7 +530,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return sizeof($result) > 0;
     }
 
-    protected function createProject($name, $origin, $uuid=null)
+    protected function createProject($name, $origin, $tables="", $uuid=null)
     {
         $this->checkPerms();
         $opt = $this->getOptions();
@@ -518,7 +563,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             DeployMintProjectTools::setRemote($finaldir, $origin);
             DeployMintProjectTools::fetch($finaldir);
         }
-        $insertToDb = $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir, origin, project_uuid) VALUES (unix_timestamp(), %s, %s, %s, %s)", $name, $fulldir, $origin, $uuid));
+        $insertToDb = $this->pdb->query($this->pdb->prepare("INSERT INTO dep_projects (ctime, name, dir, origin, tables, project_uuid) VALUES (unix_timestamp(), %s, %s, %s, %s, %s)", $name, $fulldir, $origin, $tables, $uuid));
         if ($insertToDb) {
             return true;
         } else {
@@ -692,6 +737,25 @@ abstract class DeployMintAbstract implements DeployMintInterface
         );
     }
 
+    protected function getTablesToSnapshot($projectId=0, $prefix='')
+    {
+        $projTables = $stdTables = array();
+
+        foreach($this->wpTables as $key=>$value) {
+            $stdTables[$key] = $prefix . $value;
+        }
+
+        if ($projectId) {
+            $project = $this->getProject($projectId);
+            $projTables = explode(',', $project['tables']);
+            foreach($projTables as $key=>$value) {
+                $projTables[$key] = trim($value);
+            }
+        }
+
+        return array_merge($stdTables, $projTables);
+    }
+
     protected function doSnapshot($projectId, $blogId, $name, $desc)
     {
         $this->checkPerms();
@@ -740,9 +804,11 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $desc = "Snapshot of: $siteURL\n" . $desc;
 
         $dumpErrs = array();
-        foreach ($this->wpTables as $t) {
-            $tableFile = $t . '.sql';
-            $tableName = $prefix . $t;
+        $tables = $this->getTablesToSnapshot($projectId, $prefix);
+
+        foreach ($tables as $t) {
+            $tableFile = preg_replace("/^$prefix/", '', $t) . '.sql';
+            $tableName = $t;
             $path = $dir . $tableFile;
             $dbuser = DB_USER;
             $dbpass = DB_PASSWORD;
@@ -764,6 +830,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 }
             }
         }
+        
         if (sizeof($dumpErrs) > 0) {
             $resetOut = DeployMintProjectTools::git('reset --hard HEAD', $dir);
             if (!preg_match('/HEAD is now at/', $resetOut)) {
@@ -1142,8 +1209,10 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
 
             $renames = array();
-            foreach ($this->wpTables as $t) {
-                array_push($renames, "$dbname.{$destTablePrefix}$t TO $temporaryDatabase.old_$t, $temporaryDatabase.{$sourceTablePrefix}$t TO $dbname.$destTablePrefix" . $t);
+            $tables = $this->getTablesToSnapshot($pid, $sourceTablePrefix);
+            foreach ($tables as $sourceTable) {
+                $destTable = preg_replace("/^$sourceTablePrefix/", $destTablePrefix, $sourceTable);
+                $renames[] = "$dbname.$destTable TO $temporaryDatabase.old_$destTable, $temporaryDatabase.$sourceTable TO $dbname.$destTable";
             }
             $stime = microtime(true);
             mysql_query("RENAME TABLE " . implode(", ", $renames), $dbh);
@@ -1472,5 +1541,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
     public function showFillOptionsMessage()
     {
         $this->showMessage("You need to visit the options page for \"DeployMint\" and configure all options including a data directory that is writable by your web server.", true);
+    }
+
+    public function getTableList()
+    {
+        $prefix = $this->getTablePrefix();
+        return array_map(function($value){
+            return $prefix . $value;
+        }, $this->wpTables);
     }
 }

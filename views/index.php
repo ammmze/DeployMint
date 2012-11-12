@@ -9,20 +9,31 @@ include dirname(__FILE__) . '/widgets.php';
 <div id="sdAjaxLoading" style="display: none; position: fixed; right: 1px; top: 1px; width: 100px; background-color: #F00; color: #FFF; font-size: 12px; font-family: Verdana, arial; font-weight: normal; text-align: center; z-index: 100; border: 1px solid #CCC;">Loading...</div>
 <div class="wrap">
     <h2 class="depmintHead">Manage Projects</h2>
-    <table class="form-table deploymintTable">
-    <tr>
-        <td>Enter the name of a project to create:</td>
-        <td><input type="text" id="sdProjectName" value="" size="55" maxlength="100" /></td>
-    </tr>
-    <tr>
-        <td>Git Origin Location:</td>
-        <td><input type="text" id="sdProjectOrigin" value="" size="55" maxlength="255" /></td>
-    </tr>
-    <tr>
-        <td colspan=2><input type="button" name="but2" value="Create project" onclick="deploymint.createProject(jQuery('#sdProjectName').val(),jQuery('#sdProjectOrigin').val()); return false;" class="button-primary" /></td>
-    </tr>
-    </table>
-    </p>
+    <form>
+        <input type="hidden" name="action" value="deploymint_createProject" />
+        <table class="form-table deploymintTable">
+        <tr>
+            <td>Enter the name of a project to create:</td>
+            <td><input type="text" name="name" id="sdProjectName" value="" size="55" maxlength="100" /></td>
+        </tr>
+        <tr>
+            <td>Git Origin Location:</td>
+            <td><input type="text" name="origin" id="sdProjectOrigin" value="" size="55" maxlength="255" /></td>
+        </tr>
+        <tr>
+            <td>Additional Tables:</td>
+            <td><input type="text" name="tables" value="" size="55" maxlength="255" /></td>
+        </tr>
+        <tr class="note">
+            <td colspan=2>
+                Additional tables to include the snapshots (comma separated and include the table prefix, if any). Default tables included in the snapshot are: <?php echo implode(', ', $this->getTableList()); ?>
+            </td>
+        </tr>
+        <tr>
+            <td colspan=2><input type="button" name="but2" value="Create project" onclick="deploymint.createProject(jQuery(this).parents('form:first').serializeObject()); return false;" class="button-primary" /></td>
+        </tr>
+        </table>
+    </form>
     <p id="sdProjects">
     </p>
 
@@ -33,6 +44,9 @@ include dirname(__FILE__) . '/widgets.php';
 {{each(i,proj) projects}}
 <h2>Project: ${proj.name}&nbsp;<a href="#" onclick="deploymint.deleteProject(${proj.id}); return false;" style="font-size: 10px;">remove</a></h2>
 <div class="depProjWrap">
+    {{if proj.project_uuid}}
+    <div>UUID: ${proj.project_uuid}</div>
+    {{/if}}
     {{if proj.origin}}
     <div>
         Origin: 
@@ -46,9 +60,9 @@ include dirname(__FILE__) . '/widgets.php';
         <input type="button" name="edit-origin" value="Edit Origin" class="button-secondary" onclick="deploymint.editOrigin(${proj.id}, '${proj.origin}')" />
     </div>
     {{/if}}
-    {{if proj.project_uuid}}
-    <div>UUID: ${proj.project_uuid}</div>
-    {{/if}}
+    <div>
+        Tables: ${proj.tables}<input type="button" name="edit-tables" value="Edit Tables" class="button-secondary" onclick="deploymint.editTables(${proj.id}, '${proj.tables}')" />
+    </div>
     <br />
     Add a blog to this project:&nbsp;<select id="projAddSel${proj.id}">
     {{if proj.numNonmembers}}
