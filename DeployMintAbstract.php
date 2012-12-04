@@ -749,7 +749,10 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $project = $this->getProject($projectId);
             $projTables = explode(',', $project['tables']);
             foreach($projTables as $key=>$value) {
-                $projTables[$key] = trim($value);
+                $v = trim($value);
+                if (strlen($v) > 0) {
+                    $projTables[$key] = trim($value);
+                }
             }
         }
 
@@ -1212,7 +1215,9 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $tables = $this->getTablesToSnapshot($pid, $sourceTablePrefix);
             foreach ($tables as $sourceTable) {
                 $destTable = preg_replace("/^$sourceTablePrefix/", $destTablePrefix, $sourceTable);
-                $renames[] = "$dbname.$destTable TO $temporaryDatabase.old_$destTable, $temporaryDatabase.$sourceTable TO $dbname.$destTable";
+                if (strlen($destTable) > 0) {
+                    $renames[] = "$dbname.$destTable TO $temporaryDatabase.old_$destTable, $temporaryDatabase.$sourceTable TO $dbname.$destTable";
+                }
             }
             $stime = microtime(true);
             mysql_query("RENAME TABLE " . implode(", ", $renames), $dbh);

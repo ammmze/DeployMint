@@ -1,14 +1,14 @@
 <?php
 /**
  * @package DeployMint 
- * @version 2.1.0
+ * @version 2.1.1
  */
 /*
 Plugin Name: DeployMint
 Plugin URI: https://github.com/ammmze/DeployMint
 Description: DeployMint: A staging and deployment system for Wordpress. Forked from Mark Maunder's version at <a href="http://markmaunder.com" target="_blank">markmaunder.com</a>
 Author: Branden Cash <bcash@parchment.com>
-Version: 2.1.0
+Version: 2.1.1
 Author URI: https://github.com/ammmze
 License: GPLv3 or later
 */

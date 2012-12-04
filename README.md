@@ -22,7 +22,7 @@ Managing Blogs
 This is only applicable to single-site mode (when in multi-site mode, we use the blogs as defined by current wordpress network). In single-site mode, we need to define the blogs that should be available to us.
 
 * Enter the name for the blog (currently doesn't really do anything for you, since we still just show the url)
-* Optionaly ignore SSL certificate errors when making an XML-RPC request.
+* Optionally ignore SSL certificate errors when making an XML-RPC request.
 * Enter the Blog URL. You may optionally omit the 'http://' portion. If omitted, we will use 'https://'
 
 
@@ -59,6 +59,10 @@ This is currently only available in the multi-site mode. This will restore your 
 
 Changelog
 ---------
+
+**2.1.1**
+* Fix bugs with editing origin and tables.
+* Filter custom tables that are empty
 
 **2.1.0**
 * Added ability to specify additional tables to include in the snapshots
