@@ -33,7 +33,7 @@ include dirname(__FILE__) . '/widgets.php';
         {{else}}
         <option value="">--No snapshots created yet--</option>
         {{/if}}
-        </select>
+        </select> <a href="javascript:void(0)" name='archiveSnapshot'>archive this snapshot</a>
     </td>
 </tr>
 <tr>

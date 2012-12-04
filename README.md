@@ -60,6 +60,9 @@ This is currently only available in the multi-site mode. This will restore your 
 Changelog
 ---------
 
+**2.2.0**
+* Added ability to archive snapshots
+
 **2.1.1**
 * Fix bugs with editing origin and tables.
 * Filter custom tables that are empty

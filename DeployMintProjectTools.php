@@ -99,8 +99,55 @@ class DeployMintProjectTools
         return preg_match('/fatal/', $response);
     }
 
+    public static function deleteBranch($dir, $branch, $remote='origin')
+    {
+        $out = self::deleteLocalBranch($dir, $branch);
+        return $out . ' :: ' . self::deleteRemoteBranch($dir, $branch, $remote);
+    }
+
     public static function deleteRemoteBranch($dir, $branch, $remote='origin')
     {
-        return self::git("git push $remote --delete $branch");
+        return self::git("push $remote --delete $branch", $dir);
+    }
+
+    public static function deleteLocalBranch($dir, $branch)
+    {
+        return self::git("branch -D $branch", $dir);
+    }
+
+    public static function pushAllBranches($dir, $remote='origin')
+    {
+        return self::git("push $remote --all", $dir);
+    }
+
+    public static function pushBranch($dir, $branch, $remote='origin')
+    {
+        return self::git("push $remote $branch", $dir);
+    }
+
+    public static function createTag($dir, $name, $force=false)
+    {
+        $params = array();
+        if ($force) {
+            $params[] = '--force';
+        }
+        $params = implode(' ', $params);
+        return self::git("tag $name $params", $dir);
+    }
+
+    public static function pushTags($dir, $remote='origin')
+    {
+        return self::git("push $remote --tags", $dir);
+    }
+
+    public static function checkout($dir, $branch, $remote='origin')
+    {
+        self::git("fetch $remote", $dir);
+        return self::git("checkout -t -f $remote/$branch", $dir);
+    }
+
+    public static function detach($dir)
+    {
+        return self::git("checkout HEAD@{0}", $dir);
     }
 }

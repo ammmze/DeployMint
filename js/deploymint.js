@@ -40,7 +40,15 @@ $.fn.serializeObject = function () {
 if(! window['deploymint']){
 window['deploymint'] = {
     init: function(){
+        var self = this;
         jQuery('#sdAjaxLoading').hide().ajaxStart(function(){ jQuery(this).show(); }).ajaxStop(function(){ jQuery(this).hide(); });
+        jQuery('#sdDeploySnapshot').live('click', '[name="archiveSnapshot"]', function(){
+            var projectId = jQuery('[name="projectid"]').val();
+            var snapshot = jQuery('#sdDepSnapshot').val();
+            if (snapshot.length > 0) {
+                self.archiveSnapshot(projectId, snapshot);
+            }
+        });
     },
     alertModal : null,
     alert : function(message) {
@@ -560,6 +568,37 @@ window['deploymint'] = {
                 success: function(resp){
                     d.done();
                     self.reloadProjects();
+                },
+                error: function(xhr, ajo, err){
+                }
+            });
+        }
+    },
+
+    archiveSnapshot : function(projectId, snapshots)
+    {
+        if (typeof snapshots != 'array') {
+            snapshots = [snapshots];
+        }
+        var self = this;
+        var o = window.confirm("Are you sure you want to archive this snapshot?");
+        if (o) {
+            var d = this.working();
+            jQuery.ajax({
+                type: "POST",
+                url: DeployMintVars.ajaxURL,
+                dataType: "json",
+                data: {
+                    action: "deploymint_archiveSnapshot",
+                    projectId: projectId,
+                    snapshots: snapshots
+                    },
+                success: function(resp){
+                    d.done();
+                    if (resp && resp.err) {
+                        self.alert(resp.err);
+                    }
+                    self.updateDeploySnapshot(projectid)
                 },
                 error: function(xhr, ajo, err){
                 }

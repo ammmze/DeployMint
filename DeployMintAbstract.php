@@ -74,6 +74,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
         add_action('wp_ajax_deploymint_updateDeploySnapshot', array($this, 'actionGetDeployOptions'));
         add_action('wp_ajax_deploymint_deploySnapshot', array($this, 'actionDeploySnapshot'));
+        add_action('wp_ajax_deploymint_archiveSnapshot', array($this, 'actionArchiveSnapshot'));
         
         add_action('wp_ajax_deploymint_deploy', array($this, 'ajax_deploy_callback'));
 
@@ -939,8 +940,40 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
     }
 
+    public function actionArchiveSnapshot()
+    {
+        $this->checkPerms();
+        try {
+            if ($this->archiveSnapshot($_REQUEST['projectId'], $_REQUEST['snapshots'])) {
+                die(json_encode(array('ok' => 1)));
+            }
+        } catch (Exception $e){
+            //$this->ajaxError($e->getMessage());
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+    }
+
     protected function deploySnapshot($snapshot, $blogId, $projectId, $username=null, $password=null, $deployParts=array())
     {
+        return true;
+    }
+
+    protected function archiveSnapshot($projectId, $snapshots)
+    {
+        $opt = $this->getOptions(true, true);
+        extract($opt, EXTR_OVERWRITE);
+
+        $project = $this->getProject($projectId);
+        $dir = $datadir . $project['dir'] . '/';
+        $time = time();
+        foreach($snapshots as $snapshot) {
+            DeployMintProjectTools::checkout($dir, $snapshot);
+            DeployMintProjectTools::createTag($dir, "archive/{$time}-{$snapshot}");
+            DeployMintProjectTools::checkout($dir, $snapshot);
+            DeployMintProjectTools::detach($dir);
+            DeployMintProjectTools::deleteBranch($dir, $snapshot);
+        }
+        DeployMintProjectTools::pushTags($dir);
         return true;
     }
 

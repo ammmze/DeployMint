@@ -320,7 +320,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 }
                 $this->doXmlrpcRequest($data, 'deploymint.addUpdateProject', $blog['blog_url'] . '/xmlrpc.php', $username, $password);
             } catch (Exception $e) {
-                $errors[] = "Error updated blog $id ({$blog['blog_url']}):" . $e->getMessage();
+                $errors[] = "Error updating blog $id ({$blog['blog_url']}):" . $e->getMessage();
                 //echo $e->getMessage();
             }
             
@@ -429,7 +429,7 @@ class DeployMintSingleSite extends DeployMintAbstract
         }
         
         if ($result['response']['code'] != 200) {
-            throw new Exception("XML-RPC request to create snapshot failed.");
+            throw new Exception("XML-RPC request failed." . print_r($result, true));
         }
         $response = xmlrpc_decode($result['body']);
         
