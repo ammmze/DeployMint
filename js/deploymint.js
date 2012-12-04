@@ -521,8 +521,8 @@ window['deploymint'] = {
     {
         var self = this;
         var o = window.prompt("Enter new origin", origin);
-        var d = this.working();
         if (o != null) {
+            var d = this.working();
             jQuery.ajax({
                 type: "POST",
                 url: DeployMintVars.ajaxURL,
@@ -546,8 +546,8 @@ window['deploymint'] = {
     {
         var self = this;
         var o = window.prompt("Enter new tables (command separated and include table prefix, if any)", tables);
-        var d = this.working();
         if (o != null) {
+            var d = this.working();
             jQuery.ajax({
                 type: "POST",
                 url: DeployMintVars.ajaxURL,
