@@ -7,38 +7,37 @@
     <link rel="stylesheet" href="stylesheets/styles.css">
     <link rel="stylesheet" href="stylesheets/pygment_trac.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-    <script src="javascripts/main.js"></script>
+    <script src="javascripts/respond.js"></script>
     <!--[if lt IE 9]>
       <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
     <![endif]-->
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 
   </head>
   <body>
-
-      <header>
-        <h1>DeployMint</h1>
-        <p>A staging and deployment system for WordPress</p>
-      </header>
-
-      <div id="banner">
-        <span id="logo"></span>
-
-        <a href="https://github.com/ammmze/DeployMint" class="button fork"><strong>View On GitHub</strong></a>
-        <div class="downloads">
-          <span>Downloads:</span>
-          <ul>
-            <li><a href="https://github.com/ammmze/DeployMint/zipball/master" class="button">ZIP</a></li>
-            <li><a href="https://github.com/ammmze/DeployMint/tarball/master" class="button">TAR</a></li>
-          </ul>
-        </div>
-      </div><!-- end banner -->
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/ammmze/DeployMint">View On GitHub</a></li>
+          <li class="downloads"><a href="https://github.com/ammmze/DeployMint/zipball/master">ZIP</a></li>
+          <li class="downloads"><a href="https://github.com/ammmze/DeployMint/tarball/master">TAR</a></li>
+          <li class="title">DOWNLOADS</li>
+        </nav>
+      </div><!-- end header -->
 
     <div class="wrapper">
-      <nav>
-        <ul></ul>
-      </nav>
+
       <section>
+        <div id="title">
+          <h1>DeployMint</h1>
+          <p>A staging and deployment system for WordPress</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/ammmze">ammmze</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="http://twitter.com/#!/michigangraham">mattgraham</a></span>
+        </div>
+
         <h1>DeployMint</h1>
 
 <p>DeployMint allows you to create and deploy snapshots of your wordpress blog using GIT. This makes it extremely easy to create content, adjust themes, etc in a development environment, and then move it over to a staging environment, and then on to production. This works with both WordPress Multi-Site and Single-Site.</p>
@@ -63,7 +62,7 @@
 
 <ul>
 <li>Enter the name for the blog (currently doesn't really do anything for you, since we still just show the url)</li>
-<li>Optionaly ignore SSL certificate errors when making an XML-RPC request.</li>
+<li>Optionally ignore SSL certificate errors when making an XML-RPC request.</li>
 <li>Enter the Blog URL. You may optionally omit the 'http://' portion. If omitted, we will use 'https://'</li>
 </ul><h2>Creating a Project</h2>
 
@@ -96,14 +95,35 @@
 
 <p>This is currently only available in the multi-site mode. This will restore your entire wordpress network as it was prior to deploying a snapshot.</p>
 
-<h2>License</h2>
+<h2>Changelog</h2>
+
+<p><strong>2.2.0</strong></p>
+
+<ul>
+<li>Added ability to archive snapshots</li>
+</ul><p><strong>2.1.1</strong></p>
+
+<ul>
+<li>Fix bugs with editing origin and tables.</li>
+<li>Filter custom tables that are empty</li>
+</ul><p><strong>2.1.0</strong></p>
+
+<ul>
+<li>Added ability to specify additional tables to include in the snapshots</li>
+<li>Make use of WordPress dbDelta method to update database schema</li>
+</ul><p><strong>2.0.0</strong></p>
+
+<ul>
+<li>First released version with single site support</li>
+</ul><p><strong>1.2</strong></p>
+
+<ul>
+<li>Latest version by Mark Maunder</li>
+</ul><h2>License</h2>
 
 <p>This plugin uses the <a href="http://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License v3.0</a></p>
       </section>
-      <footer>
-        <p>Project maintained by <a href="https://github.com/ammmze">ammmze</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="http://twitter.com/#!/michigangraham">mattgraham</a></small></p>
-      </footer>
+
     </div>
     <!--[if !IE]><script>fixScale(document);</script><![endif]-->
               <script type="text/javascript">
