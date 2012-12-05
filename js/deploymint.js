@@ -582,7 +582,7 @@ window['deploymint'] = {
         }
         var self = this;
         var confirm = window.confirm("Are you sure you want to archive this snapshot?");
-        if (confirm === true) {
+        if (confirm) {
             var d = this.working();
             jQuery.ajax({
                 type: "POST",
@@ -598,7 +598,7 @@ window['deploymint'] = {
                     if (resp && resp.err) {
                         self.alert(resp.err);
                     }
-                    self.updateDeploySnapshot(projectid)
+                    self.updateDeploySnapshot(projectId)
                 },
                 error: function(xhr, ajo, err){
                 }
