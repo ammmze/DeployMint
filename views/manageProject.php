@@ -25,7 +25,7 @@ include dirname(__FILE__) . '/widgets.php';
 <table class="form-table deploymintTable">
 <tr>
     <td>Select a snapshot to deploy:</td>
-    <td><select id="sdDepSnapshot" name="name" onchange="deploymint.updateSnapDesc(projectid, jQuery(this).val()); return true;">
+    <td><select id="sdDepSnapshot" name="name" onchange="deploymint.updateSnapDesc(<?php echo $proj['id'];?>, jQuery(this).val()); return true;">
         {{if snapshots.length}}
         {{each(i,snap) snapshots}}
         <option value="${snap.name}"{{if selectedSnap == snap.name}} selected{{/if}}>${snap.name} - Created on: ${snap.created}</option>

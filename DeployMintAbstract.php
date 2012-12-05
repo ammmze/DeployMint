@@ -13,7 +13,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     const DP_TABLE_ALL      = 'table_all';
     const DP_DIR_UPLOADS    = 'dir_uploads';
 
-    protected $wpTables = array('commentmeta', 'comments', 'links', 'options', 'postmeta', 'posts', 'term_relationships', 'term_taxonomy', 'terms');
+    protected $wpTables = array('commentmeta', 'comments', 'links', 'options', 'postmeta', 'posts', 'term_relationships', 'term_taxonomy', 'terms', 'users', 'usermeta');
     protected $pdb;
     protected $defaultOptions = array(
         'git'               => '',
@@ -760,6 +760,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
         return array_merge($stdTables, $projTables);
     }
 
+    protected function getTablesToDeploy($projectId=0, $prefix='')
+    {
+        $tables = $this->getTablesToSnapshot($preojectId, $prefix);
+
+        return $tables;
+    }
+
     protected function doSnapshot($projectId, $blogId, $name, $desc)
     {
         $this->checkPerms();
@@ -1245,12 +1252,15 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
 
             $renames = array();
-            $tables = $this->getTablesToSnapshot($pid, $sourceTablePrefix);
+            $tables = $this->getTablesToDeploy($pid, $sourceTablePrefix);
             foreach ($tables as $sourceTable) {
-                $destTable = preg_replace("/^$sourceTablePrefix/", $destTablePrefix, $sourceTable);
-                if (strlen($destTable) > 0) {
-                    $renames[] = "$dbname.$destTable TO $temporaryDatabase.old_$destTable, $temporaryDatabase.$sourceTable TO $dbname.$destTable";
+                if (file_exists($dir . '/' . $sourceTable . '.sql')) {
+                    $destTable = preg_replace("/^$sourceTablePrefix/", $destTablePrefix, $sourceTable);
+                    if (strlen($destTable) > 0) {
+                        $renames[] = "$dbname.$destTable TO $temporaryDatabase.old_$destTable, $temporaryDatabase.$sourceTable TO $dbname.$destTable";
+                    }
                 }
+                
             }
             $stime = microtime(true);
             mysql_query("RENAME TABLE " . implode(", ", $renames), $dbh);

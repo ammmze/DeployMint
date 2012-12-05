@@ -97,4 +97,23 @@ class DeployMintMultiSite extends DeployMintAbstract
             DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "blogs.dir/* " . WP_CONTENT_DIR . "/blogs.dir/$blogId/", './', null, 60);
         }
     }
+
+    protected function getTablesToDeploy($projectId=0, $prefix='')
+    {
+        $tables = $parent->getTablesToDeploy($projectId, $prefix);
+        
+        $t = array();
+
+        foreach($tables as $table) {
+            switch($table) {
+            case "users":
+            case "usermeta":
+                break;
+            default:
+                $t[] = $table;
+            }
+        }
+
+        return $tables;
+    }
 }
