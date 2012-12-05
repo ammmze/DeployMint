@@ -42,7 +42,7 @@ window['deploymint'] = {
     init: function(){
         var self = this;
         jQuery('#sdAjaxLoading').hide().ajaxStart(function(){ jQuery(this).show(); }).ajaxStop(function(){ jQuery(this).hide(); });
-        jQuery('#sdDeploySnapshot').live('click', '[name="archiveSnapshot"]', function(){
+        jQuery('#sdDeploySnapshot [name="archiveSnapshot"]').live('click', function(){
             var projectId = jQuery('[name="projectid"]').val();
             var snapshot = jQuery('#sdDepSnapshot').val();
             if (snapshot.length > 0) {
@@ -581,8 +581,8 @@ window['deploymint'] = {
             snapshots = [snapshots];
         }
         var self = this;
-        var o = window.confirm("Are you sure you want to archive this snapshot?");
-        if (o) {
+        var confirm = window.confirm("Are you sure you want to archive this snapshot?");
+        if (confirm === true) {
             var d = this.working();
             jQuery.ajax({
                 type: "POST",
