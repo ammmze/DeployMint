@@ -60,6 +60,11 @@ This is currently only available in the multi-site mode. This will restore your 
 Changelog
 ---------
 
+**2.2.1**
+* Fixed clicking anywhere in deploy started archive process
+* User tables are included in snapshots
+* Single site will now deploy user tables (eventually will make it an option)
+
 **2.2.0**
 * Added ability to archive snapshots
 

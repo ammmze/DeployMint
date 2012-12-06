@@ -1254,7 +1254,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $renames = array();
             $tables = $this->getTablesToDeploy($pid, $sourceTablePrefix);
             foreach ($tables as $sourceTable) {
-                if (file_exists($dir . '/' . $sourceTable . '.sql')) {
+                $sourceTableBase = preg_replace("/^$sourceTablePrefix/" , '', $sourceTable);
+                if (file_exists($dir . '/' . $sourceTableBase . '.sql')) {
                     $destTable = preg_replace("/^$sourceTablePrefix/", $destTablePrefix, $sourceTable);
                     if (strlen($destTable) > 0) {
                         $renames[] = "$dbname.$destTable TO $temporaryDatabase.old_$destTable, $temporaryDatabase.$sourceTable TO $dbname.$destTable";

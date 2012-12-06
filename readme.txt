@@ -78,6 +78,11 @@ directory take precedence. For example, `/assets/screenshot-1.png` would win ove
 
 == Changelog ==
 
+= 2.2.1 =
+* Fixed clicking anywhere in deploy started archive process
+* User tables are included in snapshots
+* Single site will now deploy user tables (eventually will make it an option)
+
 = 2.2.0 =
 * Added ability to archive snapshots
 
