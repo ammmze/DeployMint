@@ -60,6 +60,9 @@ This is currently only available in the multi-site mode. This will restore your 
 Changelog
 ---------
 
+**2.2.2**
+* Include must-use plugins
+
 **2.2.1**
 * Fixed clicking anywhere in deploy started archive process
 * User tables are included in snapshots
