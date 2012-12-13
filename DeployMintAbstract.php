@@ -822,6 +822,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $dumpErrs = array();
         $tables = $this->getTablesToSnapshot($projectId, $prefix);
 
+        DeployMintTools::mexec("rm -fr $dir/*.sql");
+
         foreach ($tables as $t) {
             $tableFile = preg_replace("/^$prefix/", '', $t) . '.sql';
             $tableName = $t;
