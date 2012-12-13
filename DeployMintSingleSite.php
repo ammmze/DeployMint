@@ -156,7 +156,7 @@ class DeployMintSingleSite extends DeployMintAbstract
         } catch (Exception $e) {
             return array(
                 "success"=>false,
-                "error"=>$e->getMessage()
+                "error"=>$e->getMessage(),
             );
         }
         

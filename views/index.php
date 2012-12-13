@@ -26,7 +26,7 @@ include dirname(__FILE__) . '/widgets.php';
         </tr>
         <tr class="note">
             <td colspan=2>
-                Additional tables to include the snapshots (comma separated and include the table prefix, if any). Default tables included in the snapshot are: <?php echo implode(', ', $this->getTableList()); ?>
+                Additional tables to include the snapshots (comma separated and exclude the table prefix, if the table uses a different prefix or no prefix, then use a backslash before the table name. ie \custom_table). Default tables included in the snapshot are: <?php echo implode(', ', $this->getTableList()); ?>
             </td>
         </tr>
         <tr>

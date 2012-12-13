@@ -553,7 +553,7 @@ window['deploymint'] = {
     editTables : function(projectId, tables)
     {
         var self = this;
-        var o = window.prompt("Enter new tables (command separated and include table prefix, if any)", tables);
+        var o = window.prompt("Enter new tables (command separated and exclude the table prefix, if the table uses a different prefix or no prefix, then use a backslash before the table name. ie \\custom_table)", tables);
         if (o != null) {
             var d = this.working();
             jQuery.ajax({

@@ -62,6 +62,7 @@ Changelog
 
 **2.2.2**
 * Include must-use plugins
+* Fix custom table deployments
 
 **2.2.1**
 * Fixed clicking anywhere in deploy started archive process

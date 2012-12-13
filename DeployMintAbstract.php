@@ -752,7 +752,12 @@ abstract class DeployMintAbstract implements DeployMintInterface
             foreach($projTables as $key=>$value) {
                 $v = trim($value);
                 if (strlen($v) > 0) {
-                    $projTables[$key] = trim($value);
+                    if (substr($v, 0, 1) == '\\') {
+                        $projTables[$key] = $v;
+                    } else {
+                        $projTables[$key] = $prefix . $v;
+                    }
+                    
                 }
             }
         }
@@ -762,7 +767,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function getTablesToDeploy($projectId=0, $prefix='')
     {
-        $tables = $this->getTablesToSnapshot($preojectId, $prefix);
+        $tables = $this->getTablesToSnapshot($projectId, $prefix);
 
         return $tables;
     }
@@ -1042,6 +1047,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $dbpass = DB_PASSWORD;
             $dbhost = DB_HOST;
             $dbname = DB_NAME;
+
+            // Import into temporary database
             $slurp1 = DeployMintTools::mexec("cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase ", $dir);
             if (preg_match('/\w+/', $slurp1)) {
                 throw new Exception("We encountered an error importing the data files from snapshot $name into database $temporaryDatabase $dbuser:$dbpass@$dbhost. The error was: " . substr($slurp1, 0, 1000));
@@ -1167,23 +1174,26 @@ abstract class DeployMintAbstract implements DeployMintInterface
                     }
                 }
             }
+
+            if (!mysql_select_db($dbname, $dbh)) {
+                throw new Exception("Could not select database $dbname : " . mysql_error($dbh));
+            }
+            $curdbres = mysql_query("SELECT DATABASE()", $dbh);
+            $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            $res14 = mysql_query("SHOW TABLES", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            $allTables = array();
+            while ($row = mysql_fetch_array($res14, MYSQL_NUM)) {
+                array_push($allTables, $row[0]);
+            }
+
             if (!$backupDisabled) {
-                if (!mysql_select_db($dbname, $dbh)) {
-                    throw new Exception("Could not select database $dbname : " . mysql_error($dbh));
-                }
-                $curdbres = mysql_query("SELECT DATABASE()", $dbh);
-                $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM);
-                if (mysql_error($dbh)) {
-                    throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-                }
-                $res14 = mysql_query("SHOW TABLES", $dbh);
-                if (mysql_error($dbh)) {
-                    throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
-                }
-                $allTables = array();
-                while ($row = mysql_fetch_array($res14, MYSQL_NUM)) {
-                    array_push($allTables, $row[0]);
-                }
+                
                 if (mysql_error($dbh)) {
                     throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
                 }
@@ -1258,7 +1268,11 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 if (file_exists($dir . '/' . $sourceTableBase . '.sql')) {
                     $destTable = preg_replace("/^$sourceTablePrefix/", $destTablePrefix, $sourceTable);
                     if (strlen($destTable) > 0) {
-                        $renames[] = "$dbname.$destTable TO $temporaryDatabase.old_$destTable, $temporaryDatabase.$sourceTable TO $dbname.$destTable";
+                        //$renames[] = "$dbname.$destTable TO $temporaryDatabase.old_$destTable, $temporaryDatabase.$sourceTable TO $dbname.$destTable";
+                        if (in_array($destTable, $allTables)) {
+                            $renames[] = "$dbname.$destTable TO $temporaryDatabase.old_$destTable";
+                        }
+                        $renames[] = "$temporaryDatabase.$sourceTable TO $dbname.$destTable";
                     }
                 }
                 
