@@ -1119,6 +1119,13 @@ abstract class DeployMintAbstract implements DeployMintInterface
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
+            
+            // Update wp_usermeta.meta_key replacing source prefix with destination prefix
+            mysql_query("UPDATE {$sourceTablePrefix}usermeta SET meta_key=REPLACE(meta_key, '$sourceTablePrefix', '$destTablePrefix')
+                WHERE meta_key LIKE '{$sourceTablePrefix}%'", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
 
             mysql_query("UPDATE {$temporaryDatabase}.{$sourceTablePrefix}options SET option_name='{$destTablePrefix}user_roles' WHERE option_name='{$sourceTablePrefix}user_roles'", $dbh);
             if (mysql_error($dbh)) {
