@@ -1089,7 +1089,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $destHost = preg_replace('/^https?:\/\/([^\/]+.*)$/i', '$1', $destSiteURL);
             $sourceHost = preg_replace('/^https?:\/\/([^\/]+.*)$/i', '$1', $sourceSiteURL);
             foreach ($options as $oname => $val) {
-                mysql_query("UPDATE {$sourceTablePrefix}options set option_value='" . mysql_real_escape_string($val) . "' WHERE option_name='" . mysql_real_escape_string($oname) . "'", $dbh);
+                mysql_query("UPDATE {$sourceTablePrefix}options SET option_value='" . mysql_real_escape_string($val) . "' WHERE option_name='" . mysql_real_escape_string($oname) . "'", $dbh);
                 if (mysql_error($dbh)) {
                     throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
                 }
@@ -1099,7 +1099,23 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
             
+            // Update wp_posts.post_content replacing sourceurl with dest url
             mysql_query("UPDATE {$sourceTablePrefix}posts SET post_content=REPLACE(post_content, '$sourceHost', '$destHost'), guid=REPLACE(guid, '$sourceHost', '$destHost')", $dbh);
+            if (mysql_error($dbh)) {
+                throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
+            }
+            
+            // Update wp_postmeta.meta_value replacing sourceurl with dest url
+            // For now, don't do anything with serialized data
+            // TODO: unserialize data, update value, serialize data??? Is it worth it?
+            mysql_query("UPDATE {$sourceTablePrefix}postmeta SET meta_value=REPLACE(meta_value, '$sourceSiteURL', '$destSiteURL') 
+                WHERE meta_value NOT LIKE 'a:%' 
+                    AND meta_value NOT LIKE 's:%' 
+                    AND meta_value NOT LIKE 'i:%' 
+                    AND meta_value NOT LIKE 'b:%' 
+                    AND meta_value NOT LIKE 'N:%' 
+                    AND meta_value NOT LIKE 'O:%' 
+                    AND meta_value NOT LIKE 'd:%'", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
