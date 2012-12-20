@@ -740,36 +740,64 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function getTablesToSnapshot($projectId=0, $prefix='')
     {
-        $projTables = $stdTables = array();
+        $stdTables = $this->getTablesWithPrefix($prefix);
 
-        foreach($this->wpTables as $key=>$value) {
-            $stdTables[$key] = $prefix . $value;
-        }
-
-        if ($projectId) {
-            $project = $this->getProject($projectId);
-            $projTables = explode(',', $project['tables']);
-            foreach($projTables as $key=>$value) {
-                $v = trim($value);
-                if (strlen($v) > 0) {
-                    if (substr($v, 0, 1) == '\\') {
-                        $projTables[$key] = $v;
-                    } else {
-                        $projTables[$key] = $prefix . $v;
-                    }
-                    
-                }
-            }
-        }
-
+        $projTables = $this->getProjectSpecificTables($projectId, $prefix);
+        
         return array_merge($stdTables, $projTables);
     }
 
     protected function getTablesToDeploy($projectId=0, $prefix='')
     {
-        $tables = $this->getTablesToSnapshot($projectId, $prefix);
+        $stdTables = array();
 
-        return $tables;
+        foreach($this->wpTables as $key=>$value) {
+            $stdTables[$key] = $prefix . $value;
+        }
+
+        $projTables = $this->getProjectSpecificTables($projectId, $prefix);
+
+        return array_merge($stdTables, $projTables);
+    }
+
+    protected function getTablesWithPrefix($prefix, $pdb=null)
+    {
+        if ($pdb == null) {
+            $pdb = $this->getPdb();
+        }
+
+        $tables = $pdb->get_results("SHOW TABLES", ARRAY_N);
+        $prefixedTables = array();
+        foreach($tables as $table) {
+            $t = trim($table[0]);
+            if (strlen($t) && preg_match("/^$prefix/", $t)) {
+                $prefixedTables[] = $t;
+            }
+        }
+        return $prefixedTables;
+    }
+
+    protected function getProjectSpecificTables($projectId=0, $prefix='')
+    {
+        $projTables = array();
+        if ($projectId) {
+            $project = $this->getProject($projectId);
+            if (strlen(trim($project['tables']))) {
+                $projTables = explode(',', $project['tables']);
+                foreach($projTables as $key=>$value) {
+                    $v = trim($value);
+                    if (strlen($v) > 0) {
+                        if (substr($v, 0, 1) == '\\') {
+                            $projTables[$key] = $v;
+                        } else {
+                            $projTables[$key] = $prefix . $v;
+                        }
+                        
+                    }
+                }
+            }
+        }
+        return $projTables;
     }
 
     protected function doSnapshot($projectId, $blogId, $name, $desc)
@@ -779,6 +807,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         extract($opt, EXTR_OVERWRITE);
         $proj = $this->getProject($projectId);
         $dir = $datadir . $proj['dir'] . '/';
+        $pdb = $this->getPdb();
 
         // Check that project directory exists
         if (!is_dir($dir)) {

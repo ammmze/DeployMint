@@ -4,7 +4,7 @@
     Author website: http://markmaunder.com/
     License: GPL 3.0
 */
-include dirname(__FILE__) . '/widgets.php';echo WPMU_PLUGIN_DIR;
+include dirname(__FILE__) . '/widgets.php';
 ?>
 
 <div class="wrap">
