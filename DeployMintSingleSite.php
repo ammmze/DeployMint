@@ -359,29 +359,41 @@ class DeployMintSingleSite extends DeployMintAbstract
         parent::doSnapshot($projectId, $blogId, $name, $desc);
     }
 
-    protected function copyFilesToDataDir($blogId, $dest)
+    protected function copyFilesToDataDir($blogId, $destPath)
     {
         // TODO: Use wordpress defined constants such as WPMU_PLUGIN_DIR
         extract($this->getOptions(), EXTR_OVERWRITE);
-        DeployMintTools::mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/uploads/ $dest" . "uploads 2>&1", './', null, 60);
-        DeployMintTools::mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/plugins/ $dest" . "plugins 2>&1", './', null, 60);
-        DeployMintTools::mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/mu-plugins/ $dest" . "mu-plugins 2>&1", './', null, 60);
-        DeployMintTools::mexec("$rsync -rd --exclude '.git' " . WP_CONTENT_DIR . "/themes/ $dest"  . "themes 2>&1" , './', null, 60);
+        $destPath = rtrim($destPath, '/');
+        $uploadDir = wp_upload_dir();
+        $uploadDir = $uploadDir['basedir'];
+        $paths = array(
+            // Source Path              => Destination Directory
+            $uploadDir                  => $destPath . '/uploads',
+            WP_PLUGIN_DIR               => $destPath . '/plugins',
+            WPMU_PLUGIN_DIR             => $destPath . '/mu-plugins',
+            get_theme_root()            => $destPath . '/themes',
+        );
+        foreach($paths as $source=>$dest) {
+            DeployMintTools::mexec("$rsync -azrd --delete --exclude '.git' {$source}/ {$dest}/ 2>&1", './', null, 60);
+        }
     }
 
-    protected function copyFilesFromDataDir($blogId, $src, $deployParts=array())
+    protected function copyFilesFromDataDir($blogId, $srcPath, $deployParts=array())
     {
         extract($this->getOptions(), EXTR_OVERWRITE);
+        $srcPath = rtrim($srcPath, '/');
 
         if (isset($deployParts[self::DP_DIR_UPLOADS])) {
-            DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "uploads/* " . WP_CONTENT_DIR . "/uploads/ 2>&1", './', null, 60);
+            $uploadDir = wp_upload_dir();
+            $uploadDir = $uploadDir['basedir'];
+            DeployMintTools::mexec("$rsync -rd --exclude '.git' {$srcPath}/uploads/* $uploadDir/ 2>&1", './', null, 60);
         }
         if (isset($deployParts[self::DP_DIR_PLUGINS])) {
-            DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "plugins/* " . WP_CONTENT_DIR . "/plugins/ 2>&1", './', null, 60);
-            DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "mu-plugins/* " . WP_CONTENT_DIR . "/mu-plugins/ 2>&1", './', null, 60);
+            DeployMintTools::mexec("$rsync -rd --exclude '.git' {$srcPath}/plugins/* " . WP_PLUGIN_DIR . "/ 2>&1", './', null, 60);
+            DeployMintTools::mexec("$rsync -rd --exclude '.git' {$srcPath}/mu-plugins/* " . WPMU_PLUGIN_DIR . "/ 2>&1", './', null, 60);
         }
         if (isset($deployParts[self::DP_DIR_THEMES])) {
-            DeployMintTools::mexec("$rsync -rd --exclude '.git' $src" . "themes/* "  . WP_CONTENT_DIR . "/themes/ 2>&1" , './', null, 60);
+            DeployMintTools::mexec("$rsync -rd --exclude '.git' {$srcPath}/themes/* " . get_theme_root() . "/ 2>&1" , './', null, 60);
         }
     }
 
