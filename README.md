@@ -60,6 +60,12 @@ This is currently only available in the multi-site mode. This will restore your 
 Changelog
 ---------
 
+**2.3.0**
+* Enhancement: Snapshots include all tables with the specified db prefix
+* Enhancement: Paths to plugins, themes, etc are no longer hard coded
+* Fixed: Url's in postmeta table are not fixed
+* Fixed: Deploying to a host with a different database prefix loses user permission
+
 **2.2.2**
 * Include must-use plugins
 * Fix custom table deployments

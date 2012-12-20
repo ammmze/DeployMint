@@ -4,7 +4,7 @@ Donate link:
 Tags: deploy, staging, multi-site, multisite
 Requires at least: 3.0.1
 Tested up to: 3.4.2
-Stable tag: 2.2.2
+Stable tag: 2.3.0
 License: GPLv3 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -77,6 +77,12 @@ directory take precedence. For example, `/assets/screenshot-1.png` would win ove
 2. This is the second screen shot
 
 == Changelog ==
+
+= 2.3.0 =
+* Enhancement: Snapshots include all tables with the specified db prefix
+* Enhancement: Paths to plugins, themes, etc are no longer hard coded
+* Fixed: Url's in postmeta table are not fixed
+* Fixed: Deploying to a host with a different database prefix loses user permission
 
 = 2.2.2 =
 * Include must-use plugins
