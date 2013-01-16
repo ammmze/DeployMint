@@ -20,7 +20,7 @@ class DeployMintMultiSite extends DeployMintAbstract
         extract($this->getOptions(), EXTR_OVERWRITE);
         add_menu_page("DeployMint", "DeployMint", 'manage_network', self::PAGE_INDEX, array($this, 'actionIndex'), WP_PLUGIN_URL . '/DeployMint/images/deployMintIcon.png');
         add_submenu_page(self::PAGE_INDEX, "Manage Projects", "Manage Projects", 'manage_network', self::PAGE_PROJECTS, array($this, 'actionIndex'));
-        $projects = $this->pdb->get_results($this->pdb->prepare("SELECT id, name FROM dep_projects WHERE deleted=0"), ARRAY_A);
+        $projects = $this->pdb->get_results("SELECT id, name FROM dep_projects WHERE deleted=0", ARRAY_A);
         for ($i = 0; $i < sizeof($projects); $i++) {
             add_submenu_page(self::PAGE_INDEX, "Proj: " . $projects[$i]['name'], "Proj: " . $projects[$i]['name'], 'manage_network', self::PAGE_PROJECTS . '/' . $projects[$i]['id'], array($this, 'actionManageProject_' . $projects[$i]['id']));
         }

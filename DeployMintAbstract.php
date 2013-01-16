@@ -171,7 +171,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function getOptions($createTemporaryDatabase = false, $createBackupDatabase = false)
     {
-        $res = $this->pdb->get_results($this->pdb->prepare("SELECT name, val FROM dep_options"), ARRAY_A);
+        $res = $this->pdb->get_results("SELECT name, val FROM dep_options", ARRAY_A);
         $options = $this->getDefaultOptions();
         for ($i = 0; $i < sizeof($res); $i++) {
             $options[$res[$i]['name']] = $res[$i]['val'];
@@ -181,7 +181,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if ($options['temporaryDatabase'] == '' && $createTemporaryDatabase) {
             for ($i = 1; $i < 10; $i++) {
                 $options['temporaryDatabase'] = 'dep_tmpdb' . preg_replace('/\./', '', microtime(true));
-                $res = $this->pdb->get_results($this->pdb->prepare("SHOW TABLES FROM " . $options['temporaryDatabase']), ARRAY_A);
+                $res = $this->pdb->get_results("SHOW TABLES FROM " . $options['temporaryDatabase'], ARRAY_A);
                 if (sizeof($res) < 1) {
                     break;
                 }
@@ -189,7 +189,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                     throw new Exception("We could not create a temporary database name after 5 tries. You may not have the create DB privelege.");
                 }
             }
-            $this->pdb->query($this->pdb->prepare("CREATE DATABASE " . $options['temporaryDatabase']));
+            $this->pdb->query("CREATE DATABASE " . $options['temporaryDatabase']);
             $options['temporaryDatabaseCreated'] = true;
         }
         $options['backupDatabaseCreated'] = false;
@@ -599,7 +599,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     protected function getProjects()
     {
-        return $this->pdb->get_results($this->pdb->prepare("SELECT * FROM dep_projects WHERE deleted=0"), ARRAY_A);
+        return $this->pdb->get_results("SELECT * FROM dep_projects WHERE deleted=0", ARRAY_A);
     }
 
     protected function getProjectBlogs($project)
@@ -659,7 +659,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     protected function getBlogs()
     {
         $blogsTable = $this->pdb->base_prefix . 'blogs';
-        return $this->pdb->get_results($this->pdb->prepare("SELECT blog_id, domain, path FROM $blogsTable ORDER BY domain ASC"), ARRAY_A);
+        return $this->pdb->get_results("SELECT blog_id, domain, path FROM $blogsTable ORDER BY domain ASC", ARRAY_A);
     }
 
     protected function removeBlogFromProject($blogId, $projectId, $username=null, $password=null)
@@ -844,7 +844,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $this->copyFilesToDataDir($blogId, $dir);
         $add = DeployMintProjectTools::git('add .', $dir);
 
-        $siteURLRes = $this->pdb->get_row($this->pdb->prepare("SELECT option_name, option_value FROM $prefix" . "options WHERE option_name = 'siteurl'"), ARRAY_A);
+        $siteURLRes = $this->pdb->get_row("SELECT option_name, option_value FROM {$prefix}options WHERE option_name = 'siteurl'", ARRAY_A);
         $siteURL = $siteURLRes['option_value'];
         $desc = "Snapshot of: $siteURL\n" . $desc;
 
@@ -1053,7 +1053,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if ($opt['preserveBlogName']) {
             $optionsToRestore[] = 'blogname';
         }
-        $res3 = $this->pdb->get_results($this->pdb->prepare("SELECT option_name, option_value FROM {$destTablePrefix}options WHERE option_name IN ('" . implode("','", $optionsToRestore) . "')"), ARRAY_A);
+        $res3 = $this->pdb->get_results("SELECT option_name, option_value FROM {$destTablePrefix}options WHERE option_name IN ('" . implode("','", $optionsToRestore) . "')", ARRAY_A);
         if (sizeof($res3) < 1) {
             throw new Exception("We could not find the data we need for the blog you're trying to deploy to.");
         }
