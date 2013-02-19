@@ -385,7 +385,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     public function __call($name, $args)
     {
         $matches = array();
-        if (preg_match('/^actionManageProject_(\d+)$/', $name, &$matches)) {
+        if (preg_match('/^actionManageProject_(\d+)$/', $name, $matches)) {
             $this->actionManageProject($matches[1]);
         } else {
             die("Method $name doesn't exist!");
@@ -947,7 +947,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 
                 $dateOut = DeployMintTools::mexec("$git log -n 1 {$bprefix}{$bname} | grep Date 2>&1", $dir);
                 $m = '';
-                if (preg_match('/Date:\s+(.+)$/', $dateOut, &$m)) {
+                if (preg_match('/Date:\s+(.+)$/', $dateOut, $m)) {
                     $ctime = strtotime($m[1]);
                     $date = $m[1];
                     array_push($snapshots, array('name' => $branches[$i], 'created' => $date, 'ctime' => $ctime));

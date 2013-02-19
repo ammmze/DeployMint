@@ -199,7 +199,7 @@ class deploymint
     public static function __callStatic($name, $args)
     {
         $matches = array();
-        if (preg_match('/^projectMenu(\d+)$/', $name, &$matches)) {
+        if (preg_match('/^projectMenu(\d+)$/', $name, $matches)) {
             self::projectMenu($matches[1]);
         } else {
             die("Method $name doesn't exist!");
@@ -919,7 +919,7 @@ class deploymint
                 }
                 $dateOut = self::mexec("$git checkout $bname 2>&1; $git log -n 1 | grep Date 2>&1", $dir);
                 $m = '';
-                if (preg_match('/Date:\s+(.+)$/', $dateOut, &$m)) {
+                if (preg_match('/Date:\s+(.+)$/', $dateOut, $m)) {
                     $ctime = strtotime($m[1]);
                     $date = $m[1];
                     array_push($snapshots, array('name' => $branches[$i], 'created' => $date, 'ctime' => $ctime));
