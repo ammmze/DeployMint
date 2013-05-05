@@ -13,7 +13,7 @@ Author URI: http://github.com/ammmze
 License: GPLv3 or later
 */
 
-require( 'deployMintClass.php' );
+require( 'deployMintCore.php' );
 require( 'DeployMintInterface.php' );
 require( 'DeployMintAbstract.php' );
 require( 'DeployMintTools.php' );
