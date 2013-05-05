@@ -1,0 +1,19 @@
+/* /css/admin.css */
+table.deploymintTable,.deploymintTable td{width:auto}
+.deployMintWarn strong{text-decoration:underline;font-weight:700}
+.deploymintPadCell{padding:0 20px 5px 0}
+.depProjWrap{border-bottom:1px solid #EFEFEF;margin:0 0 20px 20px}
+.depSmallHead{font-weight:700;font-size:14px;margin:10px 0 5px}
+.depList li{margin-left:0}
+h2.depmintHead{background-image:url(../images/deployMint28.png);background-repeat:no-repeat;background-position:0 9px;font-size:23px;line-height:29px;padding:9px 15px 4px 32px}
+tr.note{font-size:10px;font-style:italic;color:#555}
+tr.note th{color:#555;padding-top:0}
+table.deploymint-blogs{border:1px solid #EFEFEF}
+table.deploymint-blogs th{text-align:left;border-bottom:1px solid #EFEFEF}
+table.deploymint-blogs th,table.deploymint-blogs td{padding:3px 5px}
+.DeployMint-Modal{background:#FFF;max-width:260px;padding:20px}
+#DeployMint-Working{padding-left:68px;background-image:url(../images/working.gif);background-repeat:no-repeat;background-position:10px center;min-height:48px}
+.deploymint-success{color:#0A0}
+.deployPart{margin-right:10px}
+.deploymintTable th,.deploymintCellHeading{font-weight:700}
+.deployMintWarn,.deploymint-error{color:red}
