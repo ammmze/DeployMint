@@ -60,6 +60,10 @@ This is currently only available in the multi-site mode. This will restore your 
 Changelog
 ---------
 
+**2.3.1**
+* Fixed: Support PHP 5.4
+* Refactor: Removed un-necessary use prepare method
+
 **2.3.0**
 * Enhancement: Snapshots include all tables with the specified db prefix
 * Enhancement: Paths to plugins, themes, etc are no longer hard coded

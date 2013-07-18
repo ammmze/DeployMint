@@ -1,10 +1,10 @@
 === Plugin Name ===
 Contributors: ammmze
-Donate link: 
+Donate link:
 Tags: deploy, staging, multi-site, multisite
 Requires at least: 3.0.1
 Tested up to: 3.4.2
-Stable tag: 2.3.0
+Stable tag: 2.3.1
 License: GPLv3 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -71,12 +71,16 @@ An answer to that question.
 == Screenshots ==
 
 1. This screen shot description corresponds to screenshot-1.(png|jpg|jpeg|gif). Note that the screenshot is taken from
-the /assets directory or the directory that contains the stable readme.txt (tags or trunk). Screenshots in the /assets 
-directory take precedence. For example, `/assets/screenshot-1.png` would win over `/tags/4.3/screenshot-1.png` 
+the /assets directory or the directory that contains the stable readme.txt (tags or trunk). Screenshots in the /assets
+directory take precedence. For example, `/assets/screenshot-1.png` would win over `/tags/4.3/screenshot-1.png`
 (or jpg, jpeg, gif).
 2. This is the second screen shot
 
 == Changelog ==
+
+= 2.3.1 =
+* Fixed: Support PHP 5.4
+* Refactor: Removed un-necessary use prepare method
 
 = 2.3.0 =
 * Enhancement: Snapshots include all tables with the specified db prefix

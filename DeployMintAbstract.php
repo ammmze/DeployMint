@@ -45,7 +45,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
     public function uninstall()
     {
-        
+
     }
 
     public function checkUpdate()
@@ -59,7 +59,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         add_action('init', array($this, 'initHandler'));
         add_action('wp_enqueue_scripts', array($this, 'enqueueScripts'));
-        
+
         add_action('wp_ajax_deploymint_createProject', array($this, 'actionCreateProject'));
         add_action('wp_ajax_deploymint_deleteProject', array($this, 'actionRemoveProject'));
         add_action('wp_ajax_deploymint_reloadProjects', array($this, 'actionReloadProjects'));
@@ -75,19 +75,19 @@ abstract class DeployMintAbstract implements DeployMintInterface
         add_action('wp_ajax_deploymint_updateDeploySnapshot', array($this, 'actionGetDeployOptions'));
         add_action('wp_ajax_deploymint_deploySnapshot', array($this, 'actionDeploySnapshot'));
         add_action('wp_ajax_deploymint_archiveSnapshot', array($this, 'actionArchiveSnapshot'));
-        
+
         add_action('wp_ajax_deploymint_deploy', array($this, 'ajax_deploy_callback'));
 
         add_action('wp_ajax_deploymint_updateSnapDesc', array($this, 'ajax_updateSnapDesc_callback'));
-        
+
         add_action('wp_ajax_deploymint_undoDeploy', array($this, 'ajax_undoDeploy_callback'));
-        
+
         add_action('wp_ajax_deploymint_deleteBackups', array($this, 'ajax_deleteBackups_callback'));
         add_action('wp_ajax_deploymint_updateOptions', array($this, 'ajax_updateOptions_callback'));
 
         $opt = $this->getOptions();
         DeployMintProjectTools::setGit($opt['git']);
-        
+
     }
 
     protected function createSchema()
@@ -229,7 +229,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (!is_user_logged_in()) {
             die("<h2>You are not logged in.</h2>");
         }
-        if ( (is_multisite() && !current_user_can('manage_network')) 
+        if ( (is_multisite() && !current_user_can('manage_network'))
             || !is_multisite() && !current_user_can('manage_options')) {
             die("<h2>You don't have permission to access this page.</h2><p>You need the 'manage_network' Super Admin capability to use DeployMint.</p>");
         }
@@ -329,7 +329,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         if (mysql_error($dbh)) {
             $this->ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200));
         }
-        
+
         function readBackupData($dbname, $dbh)
         {
             $res2 = mysql_query("SELECT * FROM $dbname.dep_backupdata", $dbh);
@@ -404,7 +404,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         } catch (Exception $e) {
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
     }
 
     public function actionRemoveProject()
@@ -442,7 +442,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         } catch (Exception $e){
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
     }
 
     public function actionAddBlogToProject()
@@ -455,7 +455,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         } catch (Exception $e){
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
     }
 
     public function actionRemoveBlogFromProject()
@@ -468,7 +468,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         } catch (Exception $e){
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
     }
 
     public function actionUpdateOrigin()
@@ -481,7 +481,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         } catch (Exception $e){
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
     }
 
     protected function updateOrigin($projectId, $origin)
@@ -504,7 +504,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         } catch (Exception $e){
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
     }
 
     protected function updateTables($projectId, $tables)
@@ -570,9 +570,9 @@ abstract class DeployMintAbstract implements DeployMintInterface
         } else {
            rmdir($finaldir);
            throw new Exception($this->pdb->last_error);
-           
+
          }
-        
+
     }
 
     protected function removeProject($id)
@@ -633,7 +633,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $availableBlogs = array();
         $allBlogs = $this->getBlogs();
         $projectBlogs = $this->getProjectBlogs($project);
-        
+
         if (sizeof($projectBlogs) == 0) {
             return $allBlogs;
         }
@@ -641,7 +641,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $pBlogIds = array_map(function($e){
             return $e['blog_id'];
         }, $projectBlogs);
-        
+
         foreach($allBlogs as $b) {
             if (!in_array($b['blog_id'], $pBlogIds)) {
                 $availableBlogs[] = $b;
@@ -693,7 +693,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             //$this->ajaxError($e->getMessage());
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
     }
 
     protected function createSnapshot($projectId, $blogId, $name, $desc, $username=null, $password=null)
@@ -743,7 +743,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         $stdTables = $this->getTablesWithPrefix($prefix);
 
         $projTables = $this->getProjectSpecificTables($projectId, $prefix);
-        
+
         return array_merge($stdTables, $projTables);
     }
 
@@ -792,7 +792,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                         } else {
                             $projTables[$key] = $prefix . $v;
                         }
-                        
+
                     }
                 }
             }
@@ -877,7 +877,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 }
             }
         }
-        
+
         if (sizeof($dumpErrs) > 0) {
             $resetOut = DeployMintProjectTools::git('reset --hard HEAD', $dir);
             if (!preg_match('/HEAD is now at/', $resetOut)) {
@@ -892,7 +892,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         fclose($fh);
         global $current_user;
         get_currentuserinfo();
-        
+
         $user_name = trim($current_user->user_firstname . ' ' . $current_user->user_lastname);
         if ($user_name == '') {
             $user_name = $current_user->display_name;
@@ -928,7 +928,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     {
         $opt = $this->getOptions();
         extract($opt, EXTR_OVERWRITE);
-        
+
         $project = $this->getProject($projectId);
         $dir = $datadir . $project['dir'];
         if (!is_dir($dir)) {
@@ -944,7 +944,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 if ($bname == 'master') {
                     continue;
                 }
-                
+
                 $dateOut = DeployMintTools::mexec("$git log -n 1 {$bprefix}{$bname} | grep Date 2>&1", $dir);
                 $m = '';
                 if (preg_match('/Date:\s+(.+)$/', $dateOut, $m)) {
@@ -1064,7 +1064,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
 
         // Update the Media folder
         $this->copyFilesFromDataDir($blogid, $dir, $deployParts);
-        
+
         // Deploy database tables
         if (isset($deployParts[self::DP_TABLE_ALL])) {
             $fh = fopen($dir . 'deployData.txt', 'r');
@@ -1127,28 +1127,28 @@ abstract class DeployMintAbstract implements DeployMintInterface
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
-            
+
             // Update wp_posts.post_content replacing sourceurl with dest url
             mysql_query("UPDATE {$sourceTablePrefix}posts SET post_content=REPLACE(post_content, '$sourceHost', '$destHost'), guid=REPLACE(guid, '$sourceHost', '$destHost')", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
-            
+
             // Update wp_postmeta.meta_value replacing sourceurl with dest url
             // For now, don't do anything with serialized data
             // TODO: unserialize data, update value, serialize data??? Is it worth it?
-            mysql_query("UPDATE {$sourceTablePrefix}postmeta SET meta_value=REPLACE(meta_value, '$sourceSiteURL', '$destSiteURL') 
-                WHERE meta_value NOT LIKE 'a:%' 
-                    AND meta_value NOT LIKE 's:%' 
-                    AND meta_value NOT LIKE 'i:%' 
-                    AND meta_value NOT LIKE 'b:%' 
-                    AND meta_value NOT LIKE 'N:%' 
-                    AND meta_value NOT LIKE 'O:%' 
+            mysql_query("UPDATE {$sourceTablePrefix}postmeta SET meta_value=REPLACE(meta_value, '$sourceSiteURL', '$destSiteURL')
+                WHERE meta_value NOT LIKE 'a:%'
+                    AND meta_value NOT LIKE 's:%'
+                    AND meta_value NOT LIKE 'i:%'
+                    AND meta_value NOT LIKE 'b:%'
+                    AND meta_value NOT LIKE 'N:%'
+                    AND meta_value NOT LIKE 'O:%'
                     AND meta_value NOT LIKE 'd:%'", $dbh);
             if (mysql_error($dbh)) {
                 throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
             }
-            
+
             // Update wp_usermeta.meta_key replacing source prefix with destination prefix
             mysql_query("UPDATE {$sourceTablePrefix}usermeta SET meta_key=REPLACE(meta_key, '$sourceTablePrefix', '$destTablePrefix')
                 WHERE meta_key LIKE '{$sourceTablePrefix}%'", $dbh);
@@ -1247,7 +1247,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
             }
 
             if (!$backupDisabled) {
-                
+
                 if (mysql_error($dbh)) {
                     throw new Exception("A database error occured: " . substr(mysql_error($dbh), 0, 200));
                 }
@@ -1329,7 +1329,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                         $renames[] = "$temporaryDatabase.$sourceTable TO $dbname.$destTable";
                     }
                 }
-                
+
             }
             $stime = microtime(true);
             mysql_query("RENAME TABLE " . implode(", ", $renames), $dbh);
@@ -1349,7 +1349,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
                 $this->deleteOldBackupDatabases();
             }
         }
-        
+
         return true;
         //die(json_encode(array('ok' => 1, 'lockTime' => $lockTime)));
     }
@@ -1547,7 +1547,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
         if (!file_exists($rsync)) {
             $errs[] = "The file '$rsync' specified for rsync doesn't exist.";
-        }        
+        }
         if (!file_exists($git)) {
             $errs[] = "The file '$git' specified for git doesn't exist.";
         }
@@ -1581,7 +1581,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
     }
 
-    
+
 
     private function deleteOldBackupDatabases()
     {
@@ -1643,7 +1643,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
         }
     }
 
-    
+
     private function showMessage($message, $errormsg = false)
     {
         if ($errormsg) {
