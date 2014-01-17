@@ -60,6 +60,10 @@ This is currently only available in the multi-site mode. This will restore your 
 Changelog
 ---------
 
+**2.3.2**
+* Enhancement: Blogs are now editable in the Manage blogs
+* Enhancement: Blog names are now shown instead of urls
+
 **2.3.1**
 * Fixed: Support PHP 5.4
 * Refactor: Removed un-necessary use prepare method

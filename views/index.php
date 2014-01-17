@@ -37,7 +37,7 @@ include dirname(__FILE__) . '/widgets.php';
     <p id="sdProjects">
     </p>
 
-        
+
 </div>
 <script type="text/x-jquery-tmpl" id="sdProjTmpl">
 <div id="sdProj${id}">
@@ -49,7 +49,7 @@ include dirname(__FILE__) . '/widgets.php';
     {{/if}}
     {{if proj.origin}}
     <div>
-        Origin: 
+        Origin:
         <span class="deploymint-origin" title="${proj.originAvailableMessage}">
         {{if proj.originAvailable}}
             <span class="deploymint-success">${proj.origin}</span>
@@ -67,7 +67,7 @@ include dirname(__FILE__) . '/widgets.php';
     Add a blog to this project:&nbsp;<select id="projAddSel${proj.id}">
     {{if proj.numNonmembers}}
     {{each(k,blog) proj.nonmemberBlogs}}
-    <option value="${blog.blog_id}">${blog.domain}${blog.path}</option>
+    <option value="${blog.blog_id}">${blog.blog_name}</option>
     {{/each}}
     {{else}}
     <option value="">--No blogs left to add--</option>
@@ -77,7 +77,7 @@ include dirname(__FILE__) . '/widgets.php';
     {{if proj.memberBlogs.length}}
     <ul class="depList">
         {{each(l,blog) proj.memberBlogs}}
-        <li>${blog.domain}${blog.path}&nbsp;<a href="#" onclick="deploymint.removeBlogFromProject({projectID:${proj.id}, blogID:${blog.blog_id}}); return false;" style="font-size: 10px;">remove</a></li>
+        <li>${blog.blog_name}&nbsp;<a href="#" onclick="deploymint.removeBlogFromProject({projectID:${proj.id}, blogID:${blog.blog_id}}); return false;" style="font-size: 10px;">remove</a></li>
         {{/each}}
     </ul>
     {{else}}

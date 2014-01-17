@@ -4,7 +4,7 @@ Donate link:
 Tags: deploy, staging, multi-site, multisite
 Requires at least: 3.0.1
 Tested up to: 3.4.2
-Stable tag: 2.3.1
+Stable tag: 2.3.2
 License: GPLv3 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -77,6 +77,10 @@ directory take precedence. For example, `/assets/screenshot-1.png` would win ove
 2. This is the second screen shot
 
 == Changelog ==
+
+= 2.3.2 =
+* Enhancement: Blogs are now editable in the Manage blogs
+* Enhancement: Blog names are now shown instead of urls
 
 = 2.3.1 =
 * Fixed: Support PHP 5.4

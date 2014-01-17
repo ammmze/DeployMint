@@ -1,6 +1,6 @@
 (function($){
 $.fn.serializeObject = function () {
-  var 
+  var
 
     result = Object.create(null),
     mapper = function (element) {
@@ -123,7 +123,7 @@ window['deploymint'] = {
             }
             });
 
-    },  
+    },
     addOptError: function(err, isError){
         jQuery('#sdOptErrors').append('<div class="' + (isError ? 'error' : 'updated') + ' sdOptErrWrap"><p><strong>' + err + '</strong></p></div>');
     },
@@ -147,7 +147,7 @@ window['deploymint'] = {
             error: function(){}
             });
 
-    },  
+    },
     removeBlogFromProject: function(data){
         data.action = "deploymint_removeBlogFromProject";
         var d = this.working();
@@ -284,6 +284,72 @@ window['deploymint'] = {
             },
             error: function(){}
             });
+
+
+    },
+    saveBlog: function(id, url, name, ignoreCert){
+        var self = this;
+        var d = this.working();
+        jQuery.ajax({
+            type: "POST",
+            url: DeployMintVars.ajaxURL,
+            dataType: "json",
+            data: {
+                action: "deploymint_saveBlog",
+                id: id,
+                url: url,
+                name: name,
+                ignoreCert: ignoreCert ? 1 : 0
+                },
+            success: function(resp){
+                jQuery('#sdBlogName').val('');
+                jQuery('#sdBlogUrl').val('');
+                jQuery('#sdBlogId').val('');
+                jQuery('#sdBlogIgnoreCert').removeAttr('checked');
+
+                jQuery('#saveBlogBtn').hide();
+                jQuery('#addBlogBtn').show();
+
+                d.done();
+                self.reloadBlogs();
+            },
+            error: function(){}
+        });
+
+    },
+    editBlog: function(id){
+        var self = this;
+        var d = this.working();
+        jQuery.ajax({
+            type: "POST",
+            url: DeployMintVars.ajaxURL,
+            dataType: "json",
+            data: {
+                action: "deploymint_reloadBlogs"
+                },
+            success: function(resp){
+                d.done();
+                if(resp.err){
+                    self.alert(resp.err);
+                    return;
+                }
+                jQuery.each(resp.blogs, function () {
+                    if (this.id == id) {
+                        jQuery('#sdBlogName').val(this.blog_name);
+                        jQuery('#sdBlogUrl').val(this.blog_url);
+                        jQuery('#sdBlogId').val(this.id);
+                        if (this.ignore_cert == '1') {
+                            jQuery('#sdBlogIgnoreCert').attr('checked', 'checked');
+                        } else {
+                            jQuery('#sdBlogIgnoreCert').removeAttr('checked');
+                        }
+                        jQuery('#addBlogBtn').hide();
+                        jQuery('#saveBlogBtn').show();
+                    }
+                })
+            },
+            error: function(){}
+        });
 
 
     },
@@ -468,7 +534,7 @@ window['deploymint'] = {
                     return;
                 }
                 jQuery('#sdSnapDesc2').empty();
-                jQuery('#sdSnapDesc2').html(resp.desc); 
+                jQuery('#sdSnapDesc2').html(resp.desc);
             },
             error: function(arg1, arg2, arg3){ throw("Ajax exception caught: " + arg1);  }
             });

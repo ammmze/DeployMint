@@ -9,7 +9,7 @@ include dirname(__FILE__) . '/widgets.php';
 
 <div id="sdAjaxLoading" style="display: none; position: fixed; right: 1px; top: 1px; width: 100px; background-color: #F00; color: #FFF; font-size: 12px; font-family: Verdana, arial; font-weight: normal; text-align: center; z-index: 100; border: 1px solid #CCC;">Loading...</div>
 <div class="wrap">
-<h2 class="depmintHead">DepoyMint Project: &#8220;<?php echo $proj['name'] ?>&#8221;</h2> 
+<h2 class="depmintHead">DepoyMint Project: &#8220;<?php echo $proj['name'] ?>&#8221;</h2>
 
 <h3>Create a snapshot from a blog:</h3>
 <form id="sdCreateSnapshot"></form>
@@ -57,7 +57,7 @@ include dirname(__FILE__) . '/widgets.php';
     <td>Select a blog to deploy to:</td>
     <td><select id="sdDepBlog" name="blogid">
 {{each(i,blog) blogs}}
-<option value="${blog.blog_id}">${blog.domain}${blog.path}</option>
+<option value="${blog.blog_id}">${blog.blog_name}</option>
 {{/each}}
 </select>
     </td>
@@ -75,7 +75,7 @@ include dirname(__FILE__) . '/widgets.php';
     <td><select id="sdSnapBlog">
 {{if blogs.length}}
 {{each(i,blog) blogs}}
-<option value="${blog.blog_id}">${blog.domain}${blog.path}</option>
+<option value="${blog.blog_id}">${blog.blog_name}</option>
 {{/each}}
 {{else}}
 <option value="">--Please add a blog to this project--</option>
@@ -98,8 +98,8 @@ include dirname(__FILE__) . '/widgets.php';
 </script>
 <script type="text/javascript">
 var projectid = <?php echo $proj['id'] ?>;
-jQuery(function(){ 
-    deploymint.updateCreateSnapshot(projectid); 
-    deploymint.updateDeploySnapshot(projectid); 
+jQuery(function(){
+    deploymint.updateCreateSnapshot(projectid);
+    deploymint.updateDeploySnapshot(projectid);
 });
 </script>

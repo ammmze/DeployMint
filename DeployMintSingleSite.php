@@ -20,6 +20,7 @@ class DeployMintSingleSite extends DeployMintAbstract
 
         add_action('wp_ajax_deploymint_reloadBlogs', array($this, 'actionReloadBlogs'));
         add_action('wp_ajax_deploymint_addBlog', array($this, 'actionAddBlog'));
+        add_action('wp_ajax_deploymint_saveBlog', array($this, 'actionSaveBlog'));
         add_action('wp_ajax_deploymint_removeBlog', array($this, 'actionRemoveBlog'));
 
         add_filter('xmlrpc_methods', array($this, 'xmlrpcMethods'));
@@ -61,7 +62,21 @@ class DeployMintSingleSite extends DeployMintAbstract
         } catch (Exception $e){
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
+    }
+
+    public function actionSaveBlog()
+    {
+        $this->checkPerms();
+        try {
+            $this->updateBlog($_POST['id'], $_POST['url'], $_POST['name'], $_POST['ignoreCert']);
+            die(json_encode(array(
+                'ok' => 1
+            )));
+        } catch (Exception $e){
+            die(json_encode(array('err' => $e->getMessage())));
+        }
+
     }
 
     public function actionRemoveBlog()
@@ -75,7 +90,7 @@ class DeployMintSingleSite extends DeployMintAbstract
         } catch (Exception $e){
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
     }
 
     public function actionReloadBlogs()
@@ -89,7 +104,7 @@ class DeployMintSingleSite extends DeployMintAbstract
         } catch (Exception $e){
             die(json_encode(array('err' => $e->getMessage())));
         }
-        
+
     }
 
     public function xmlrpcMethods($methods)
@@ -135,7 +150,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 "error"=>$e->getMessage(),
             );
         }
-        
+
         return array("success"=>true);
     }
 
@@ -159,7 +174,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 "error"=>$e->getMessage(),
             );
         }
-        
+
         return array("success"=>true);
     }
 
@@ -182,7 +197,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 "error"=>$e->getMessage()
             );
         }
-        
+
         return array("success"=>true);
     }
 
@@ -233,6 +248,11 @@ class DeployMintSingleSite extends DeployMintAbstract
         }
     }
 
+    protected function updateBlog($id, $url, $name, $ignoreCert, $uuid=null)
+    {
+        $this->pdb->update('dep_blogs', array('blog_url'=>$url, 'blog_name'=>$name, 'ignore_cert'=>$ignoreCert), array('id'=>$id), array('%s','%s','%d','%s'));
+    }
+
     protected function removeBlog($id)
     {
         $this->pdb->update('dep_blogs', array('deleted'=>1), array('id'=>$id), array('%d'), array('%d'));
@@ -274,7 +294,7 @@ class DeployMintSingleSite extends DeployMintAbstract
     {
         // Get blog id's, prior to removing it, so that we can notify the removed blog, itself from the project
         $blogs = $this->getProjectBlogsIds($projectId);
-        
+
         // Remove the blog from the project
         parent::removeBlogFromProject($blogId, $projectId);
 
@@ -310,7 +330,7 @@ class DeployMintSingleSite extends DeployMintAbstract
         $errors = array();
 
         foreach($blogIds as $id) {
-            
+
             try {
                 $blog = $this->getBlog($id);
                 if ($blog['ignore_cert']==1){
@@ -323,7 +343,7 @@ class DeployMintSingleSite extends DeployMintAbstract
                 $errors[] = "Error updating blog $id ({$blog['blog_url']}):" . $e->getMessage();
                 //echo $e->getMessage();
             }
-            
+
         }
 
         if (sizeof($errors) > 0) {
@@ -442,12 +462,12 @@ class DeployMintSingleSite extends DeployMintAbstract
         if (is_wp_error($result)){
             throw new Exception($result->get_error_message());
         }
-        
+
         if ($result['response']['code'] != 200) {
             throw new Exception("XML-RPC request failed." . print_r($result, true));
         }
         $response = xmlrpc_decode($result['body']);
-        
+
         if (!is_array($response)) {
             throw new Exception(print_r($result, true));
         }

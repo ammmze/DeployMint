@@ -26,14 +26,18 @@ include dirname(__FILE__) . '/widgets.php';
         <td><input type="text" id="sdBlogUrl" value="" size="75" maxlength="255" /></td>
     </tr>
     <tr>
-        <td colspan=2><input type="button" name="but2" value="Add blog" onclick="deploymint.addBlog(jQuery('#sdBlogUrl').val(), jQuery('#sdBlogName').val(), jQuery('#sdBlogIgnoreCert').is(':checked')); return false;" class="button-primary" /></td>
+        <td colspan=2>
+            <input type="hidden" id="sdBlogId" value="" />
+            <input type="button" name="but2" id="addBlogBtn" value="Add blog" onclick="deploymint.addBlog(jQuery('#sdBlogUrl').val(), jQuery('#sdBlogName').val(), jQuery('#sdBlogIgnoreCert').is(':checked')); return false;" class="button-primary" />
+            <input style="display:none" type="button" id="saveBlogBtn" value="Save blog" onclick="deploymint.saveBlog(jQuery('#sdBlogId').val(), jQuery('#sdBlogUrl').val(), jQuery('#sdBlogName').val(), jQuery('#sdBlogIgnoreCert').is(':checked')); return false;" class="button-primary" />
+        </td>
     </tr>
     </table>
-    
+
     <div id="sdBlogs">
     </div>
 
-        
+
 </div>
 <script type="text/x-jquery-tmpl" id="sdBlogTmpl">
 <h2 class="">Current Blogs</h2>
@@ -55,7 +59,7 @@ include dirname(__FILE__) . '/widgets.php';
                 <td>${blog.blog_uuid}</td>
                 <td>${blog.ignore_cert}</td>
                 <td>
-                    <input disabled="disabled" type="button" value="Edit" title="Not yet implemented" onclick="deploymint.editBlog(${blog.id}); return false;" class="button-primary">
+                    <input type="button" value="Edit" onclick="deploymint.editBlog(${blog.id}); return false;" class="button-primary">
                     <input type="button" value="Remove" onclick="deploymint.removeBlog(${blog.id}); return false;" class="button-secondary">
                 </td>
             </tr>

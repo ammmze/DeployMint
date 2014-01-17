@@ -605,7 +605,7 @@ abstract class DeployMintAbstract implements DeployMintInterface
     protected function getProjectBlogs($project)
     {
         $blogsTable = $this->pdb->base_prefix . 'blogs';
-        return $this->pdb->get_results($this->pdb->prepare("SELECT $blogsTable.blog_id AS blog_id, $blogsTable.domain AS domain, $blogsTable.path AS path FROM dep_members, $blogsTable WHERE dep_members.deleted=0 AND dep_members.project_id=%d AND dep_members.blog_id = $blogsTable.blog_id", $project), ARRAY_A);
+        return $this->pdb->get_results($this->pdb->prepare("SELECT $blogsTable.blog_id AS blog_id, $blogsTable.domain AS domain, $blogsTable.path AS path, $blogsTable.blog_name AS name FROM dep_members, $blogsTable WHERE dep_members.deleted=0 AND dep_members.project_id=%d AND dep_members.blog_id = $blogsTable.blog_id", $project), ARRAY_A);
     }
 
     protected function getBlogsIds()
