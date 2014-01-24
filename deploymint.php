@@ -9,23 +9,22 @@ Author URI: http://github.com/ammmze
 License: GPLv3 or later
 */
 
-require('deploymintClass.php');
-require 'DeployMintInterface.php';
-require 'DeployMintAbstract.php';
-require 'DeployMintTools.php';
-require 'DeployMintProjectTools.php';
-if (is_multisite()) {
-    require 'DeployMintMultiSite.php';
-    $deployMintPlugin = new DeployMintMultiSite();
-} else {
-    require 'DeployMintSingleSite.php';
-    $deployMintPlugin = new DeployMintSingleSite();
+require( 'deployMintCore.php' );
+require( 'DeployMintInterface.php' );
+require( 'DeployMintAbstract.php' );
+require( 'DeployMintTools.php' );
+require( 'DeployMintProjectTools.php' );
+
+if( is_multisite() ){
+  require( 'DeployMintMultiSite.php' );
+  $deployMintPlugin = new DeployMintMultiSite();
+}else{
+  require( 'DeployMintSingleSite.php' );
+  $deployMintPlugin = new DeployMintSingleSite();
 }
 
-register_activation_hook(__FILE__, array($deployMintPlugin,'install'));
-register_deactivation_hook(__FILE__, array($deployMintPlugin,'uninstall'));
-add_action('plugins_loaded', array($deployMintPlugin,'checkUpdate'));
+register_activation_hook( __FILE__ , array( $deployMintPlugin , 'install' ) );
+register_deactivation_hook( __FILE__ , array( $deployMintPlugin , 'uninstall' ) );
+add_action( 'plugins_loaded' , array( $deployMintPlugin , 'checkUpdate' ) );
 
 $deployMintPlugin->setup();
-
-?>
