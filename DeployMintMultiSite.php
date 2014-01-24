@@ -100,7 +100,7 @@ class DeployMintMultiSite extends DeployMintAbstract
 
     protected function getTablesToDeploy($projectId=0, $prefix='')
     {
-        $tables = $parent->getTablesToDeploy($projectId, $prefix);
+        $tables = parent::getTablesToDeploy($projectId, $prefix);
         
         $t = array();
 
