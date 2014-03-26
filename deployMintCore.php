@@ -715,28 +715,29 @@ class deploymint{
 
     if( !mysql_select_db( $temporaryDatabase , $dbh ) )
       self::ajaxError( "Could not select temporary database {$temporaryDatabase} : " . mysql_error( $dbh ) );
-    $curdbres = mysql_query( 'SELECT DATABASE()' , $dbh );
-    $curdbrow = mysql_fetch_array( $curdbres , MYSQL_NUM );
+        $curdbres = mysql_query( 'SELECT DATABASE()' , $dbh );
+        $curdbrow = mysql_fetch_array( $curdbres , MYSQL_NUM );
 
-    $renames = array();
-    foreach( self::$wpTables as $t ){
-      array_push( $renames , "{$dbname}.{$destTablePrefix}{$t} TO {$temporaryDatabase}.old_{$t} , {$temporaryDatabase}.{$sourceTablePrefix}$t TO {$dbname}.{$destTablePrefix}{$t}" );
-    }
-    $stime = microtime( true );
-    mysql_query( 'RENAME TABLE ' . implode( ', ', $renames ) , $dbh );
-    $lockTime = sprintf( '%.4f' , microtime( true ) - $stime );
-    if( mysql_error( $dbh ) )
-      self::ajaxError( 'A database error occured: ' . substr( mysql_error( $dbh ) , 0 , 200 ) );
-    if( $temporaryDatabaseCreated ){
-      mysql_query( "DROP DATABASE {$temporaryDatabase}" , $dbh );
-    }else{
-      self::emptyDatabase( $temporaryDatabase , $dbh );
-    }
-    if( mysql_error( $dbh ) )
-      self::ajaxError( 'A database error occured trying to drop an old temporary database, but the deployment completed. Error was: ' . substr( mysql_error( $dbh ) , 0 , 200 ) );
-    if( !$backupDisabled )
-      self::deleteOldBackupDatabases();
-    die( json_encode( array( 'ok' => 1 , 'lockTime' => $lockTime ) ) );
+        $renames = array();
+        foreach( self::$wpTables as $t ){
+          array_push( $renames , "{$dbname}.{$destTablePrefix}{$t} TO {$temporaryDatabase}.old_{$t} , {$temporaryDatabase}.{$sourceTablePrefix}$t TO {$dbname}.{$destTablePrefix}{$t}" );
+        }
+        $stime = microtime( true );
+        mysql_query( 'RENAME TABLE ' . implode( ', ', $renames ) , $dbh );
+        $lockTime = sprintf( '%.4f' , microtime( true ) - $stime );
+        if( mysql_error( $dbh ) )
+          self::ajaxError( 'A database error occured: ' . substr( mysql_error( $dbh ) , 0 , 200 ) );
+        if( $temporaryDatabaseCreated ){
+          mysql_query( "DROP DATABASE {$temporaryDatabase}" , $dbh );
+        }else{
+          self::emptyDatabase( $temporaryDatabase , $dbh );
+        }
+        if( mysql_error( $dbh ) )
+          self::ajaxError( 'A database error occured trying to drop an old temporary database, but the deployment completed. Error was: ' . substr( mysql_error( $dbh ) , 0 , 200 ) );
+        if( !$backupDisabled )
+          self::deleteOldBackupDatabases();
+        die( json_encode( array( 'ok' => 1 , 'lockTime' => $lockTime ) ) );
+      }
   }
 
   public static function ajax_updateSnapDesc_callback(){
