@@ -1080,8 +1080,8 @@ abstract class DeployMintAbstract implements DeployMintInterface
             $dbname = DB_NAME;
 
             // Import into temporary database
-            $slurp1 = DeployMintTools::mexec("cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase ", $dir);
-            if (preg_match('/\w+/', $slurp1)) {
+           $slurp1 = DeployMintTools::mexec("cat *.sql |egrep -v ^Warning: | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase ", $dir);
+            if( preg_match( '/\w+/' , $slurp1 ) && !preg_match( '/^Warning:.*/', $slurp1 ) ) {
                 throw new Exception("We encountered an error importing the data files from snapshot $name into database $temporaryDatabase $dbuser:$dbpass@$dbhost. The error was: " . substr($slurp1, 0, 1000));
             }
             $dbh = mysql_connect($dbhost, $dbuser, $dbpass, true);

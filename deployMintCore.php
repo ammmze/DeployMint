@@ -549,8 +549,8 @@ class deploymint{
     $dbpass = DB_PASSWORD;
     $dbhost = DB_HOST;
     $dbname = DB_NAME;
-    $slurp1 = self::mexec( "cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase " , $dir );
-    if( preg_match( '/\w+/' , $slurp1 ) )
+    $slurp1 = self::mexec( "cat *.sql |egrep -v ^Warning:  | $mysql -u $dbuser -p$dbpass -h $dbhost $temporaryDatabase " , $dir );
+   if( preg_match( '/\w+/' , $slurp1 ) && !preg_match( '/^Warning:.*/', $slurp1 ) )
       self::ajaxError( "We encountered an error importing the data files from snapshot $name into database $temporaryDatabase $dbuser:$dbpass@$dbhost. The error was: " . substr( $slurp1 , 0 , 1000 ) );
     if( !( $dbh = mysql_connect( $dbhost , $dbuser , $dbpass , true ) ) && mysql_error( $dbh ) )
       self::ajaxError( 'A database error occured: ' . substr( mysql_error( $dbh ) , 0 , 200 ) );
